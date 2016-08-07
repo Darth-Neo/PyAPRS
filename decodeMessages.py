@@ -11,54 +11,70 @@ logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
 
+def parseUnderScore(msg):
+    pass
+
 def printFields(fields):
-    weather = [u"@", u"=", u"_", u"/"]
+    weather = [u"@", u"=", u"_", u"/", u"!"]
 
     if fields[0] in weather:
-        for n, field in enumerate(fields):
+        for n, field in enumerate(fields[1:]):
             logger.debug(u"%03d : %s" % (n, field))
 
             try:
                 if field[0] == u"t":
-                    logger.info(u"Temperature                   : %d" % int(field[1:]))
+                    logger.info(u"    Temperature                   : %d" % int(field[1:]))
                 elif field[0] == u"h":
-                    logger.info(u"Humidity                      : %d" % int(field[1:]))
+                    logger.info(u"    Humidity                      : %d" % int(field[1:]))
 
                 elif field[0] == u"r":
-                    logger.info(u"Rainfall in the last hour     : %d" % int(field[1:]))
+                    fv = int(field[1:]) * 0.01
+                    logger.info(u"    Rainfall in the last hour     : %2.1f" % fv)
                 elif field[0] == u"P":
-                    logger.info(u"Rainfall in the last 24 hour  : %d" % int(field[1:]))
+                    fv = int(field[1:]) * 0.01
+                    logger.info(u"    Rainfall in the last 24 hour  : %2.1f" % fv)
                 elif field[0] == u"p":
-                    logger.info(u"Rainfall since midnight       : %d" % int(field[1:]))
+                    fv = int(field[1:]) * 0.01
+                    logger.info(u"    Rainfall since midnight       : %2.1f" % fv)
 
                 elif field[0] == u"b":
-                    logger.info(u"barometric pressure           : %d" % int(field[1:]))
+                    logger.info(u"    barometric pressure            : %d" % int(field[1:]))
 
                 elif field[0] == u"c":
-                    logger.info(u"Wind Direction                : %d" % int(field[1:]))
+                    logger.info(u"    Wind Direction                 : %d" % int(field[1:]))
                 elif field[0] == u"s":
-                    logger.info(u"Sustained wind speed          : %s" % int(field[1:]))
+                    logger.info(u"    Sustained wind speed           : %s" % int(field[1:]))
                 elif field[0] == u"g":
-                    logger.info(u"Wind Gust                     : %d" % int(field[1:]))
+                    logger.info(u"    Wind Gust                      : %d" % int(field[1:]))
 
-                elif field[-1:] in (u"N", u"S"):
-                    logger.info(u"Latitude                      : %s" % field)
+                elif field[-1:] in (u"N", u"S") and len(field) > 2:
+                    logger.info(u"  Latitude                       : %s" % field)
                 elif field[-1:] in (u"E", u"W"):
-                    logger.info(u"Longitude                    : %s" % field)
+                    logger.info(u"  Longitude                      : %s" % field)
 
                 elif field[-1:] in u"z":
-                    logger.info(u"Zulu Time:                    : %s" % field)
+                    logger.info(u"  Zulu Time:                      %s:%s:%s" % (field[:2], field[2:4], field[4:6]))
                 else:
-                    logger.debug(u"%03d : %s" % (n, field))
+                    logger.info(u"  Unknown                        : %s" % field)
+
+
             except Exception, msg:
-                logger.warn(u"%s " % msg)
+                logger.debug(u"%s " % msg)
 
     elif fields[0] in [u":"]:
         for field in fields:
             if field[-1:] in (u"N", u"S", u"E", u"W"):
                 logger.info(u"LAT/LOG : %s" % field)
+
     else:
-        logger.warn(u"Unknown")
+        logger.debug(u"Unknown")
+
+    if fields[0] == u"_":
+        fld = fields[len(fields) - 1]
+        fl1 = fld[:1]
+        fl2 = fld[1:3]
+        logger.info(u"%s : %s " % (fl1, fl2))
+
 
 
 def parseMessage(msg, msg_bytes):
@@ -139,8 +155,8 @@ def decodeMessages(msgs):
         header = message[0].lstrip()
         footer = message[1].lstrip()
 
-        # logger.info(u"%3d [%s\t%s]" % (n, header, footer))
-        logger.info(u"%3d [%s]" % (n, footer))
+        logger.info(u"%3d [%s]" % (n, header[10:]))
+        logger.info(u"    [%s]" % footer)
 
         if re.match(r"^ *[0-9]+:[0-9]+:[0-9]+.*", header, re.M | re.I):
             logger.debug(u"1 H.%3d PF    : %s " % (n, header))
@@ -169,7 +185,7 @@ def decodeMessages(msgs):
             # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
 
             logger.debug(u"2 Raw Weather Report")
-            message_bytes = (1, 8, 1, 9, 1, 0)
+            message_bytes = (1, 8, 1, 9, 1, 7, 4, 0)
             fields = parseMessage(footer, message_bytes)
 
         elif re.match(r"^_.*", footer, re.M | re.I):
@@ -191,11 +207,11 @@ def decodeMessages(msgs):
             # 5     APRS Software
             # wDAV  WX Unit -  WinAPRS
 
-            logger.info(u"3a Positionless Weather Report")
+            logger.info(u"_3a Positionless Weather Report")
             message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 1, 4, 0)
             # fields = parseMessages(footer, message_bytes)
 
-            logger.info(u"3b Positionless Weather Report")
+            logger.info(u"_3b Positionless Weather Report")
             # MDHM
             message_bytes = (1, 8, 4, 4, 4, 4, 4, 4, 3, 5, 0)
             fields = parseMessage(footer, message_bytes)
@@ -231,13 +247,14 @@ def decodeMessages(msgs):
             # h46       Humidity
             # b10144    Barometric Pressure
 
-            logger.info(u"5a Complete Weather Format")
-            message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
-            fields = parseMessage(footer, message_bytes)
-
-            logger.info(u"5b Complete Weather Format")
-            message_bytes = (1, 7, 8, 1, 9, 1, 7, 0)
-            # fields = parseMessages(footer, message_bytes)
+            if message[1][26] == u"_":
+                logger.info(u"5b Complete Weather Format")
+                message_bytes = (1, 7, 8, 1, 9, 1, 7, 0)
+                fields = parseMessage(footer, message_bytes)
+            else:
+                logger.info(u"5a Complete Weather Format")
+                message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
+                fields = parseMessage(footer, message_bytes)
 
         elif re.match(r"^/.*", footer, re.M | re.I):
             # __________________________________________________________________________________
@@ -291,7 +308,7 @@ def decodeMessages(msgs):
             fields = parseMessage(footer, message_bytes)
 
             message_bytes = (1, 9, 1, 7, 13, 43)
-            fields = parseMessage(footer, message_bytes)
+            #fields = parseMessage(footer, message_bytes)
 
         elif re.match(r">.*", footer, re.M | re.I):
             #
@@ -309,7 +326,6 @@ def decodeMessages(msgs):
 
             message_bytes = (1, 9, 1, 67, 1, 0)
             fields = parseMessage(footer, message_bytes)
-
 
         else:
             # __________________________________________________________________________________
