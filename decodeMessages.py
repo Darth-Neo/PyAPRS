@@ -2,11 +2,14 @@
 # -*- coding: utf-8 -*-
 __author__ = u"james.morris"
 import os
+import sys, getopt
+import time
 import re
 from Logger import *
 
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
+
 
 def printFields(fields):
     weather = [u"@", u"=", u"_", u"/"]
@@ -57,6 +60,7 @@ def printFields(fields):
     else:
         logger.warn(u"Unknown")
 
+
 def parseMessage(msg, msg_bytes):
     n = y = x = 0
     fields = list()
@@ -87,15 +91,23 @@ def parseMessage(msg, msg_bytes):
 
     return fields
 
-def getMessages(test=False):
-    if test:
-        fl = u"..%smessages%stest_messages.txt" % (os.sep, os.sep)
-    else:
-        fl = u"..%smessages%smessages_2016_0804_2015.txt" % (os.sep, os.sep)
 
-    with open(fl, "rb") as f:
-        messages = f.read()
+def get_GQRX_Output():
+    logs = list()
+    path = os.environ[u"HOME"] + os.sep + u"logs"
 
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            rFile = os.path.join(root, name)
+            logger.debug(u"%s" % rFile)
+
+            if re.match(r"^gqrx-[0-9]+-[0-9]+-[0-9]+-[0-9]+-[0-9]+.log", name, re.M | re.I):
+                logs.append(rFile)
+
+    return logs
+
+
+def getMessages(messages):
     aprs_messages = list()
     begin_message = False
 
@@ -103,6 +115,10 @@ def getMessages(test=False):
     for n, aprs_message in enumerate(bfr):
 
         if re.match(r"[ ]*[0-9]+:[0-9]+:[0-9]+.*", aprs_message, re.M | re.I):
+            logger.debug(u"%3d PF    : %s " % (n, aprs_message))
+            begin_message = True
+
+        elif re.match(r"^AFSK1200:.*", aprs_message, re.M | re.I):
             logger.debug(u"%3d PF    : %s " % (n, aprs_message))
             begin_message = True
 
@@ -115,6 +131,7 @@ def getMessages(test=False):
             begin_message = False
 
     return aprs_messages
+
 
 def decodeMessages(msgs):
     for n, message in enumerate(msgs):
@@ -300,9 +317,56 @@ def decodeMessages(msgs):
             logger.debug(u"No match - %s" % footer)
 
 
-if __name__ == u"__main__":
+def grabOptions(av):
+    program = u""
+    opts = u""
+    inputfile = u""
+    outputfile = u""
+
     try:
-        msgs = getMessages()
-        decodeMessages(msgs)
-    except KeyboardInterrupt:
-        logger.info(u"Bye ")
+        program = os.path.basename(av[0])
+        opts, args = getopt.getopt(av, u"hi:o:", [u"ifile=", u"ofile="])
+
+    except getopt.GetoptError, m:
+        logger.error(u"%s" % m)
+
+    for opt, arg in opts:
+        if opt == u'-h':
+            logger.info(u"%s -i <inputfile> -o <outputfile>" % program)
+            sys.exit()
+
+        elif opt in (u"-i", u"--ifile"):
+            inputfile = arg
+
+        elif opt in (u"-o", u"--ofile"):
+            outputfile = arg
+
+    logger.debug(u"Input file is %s" % inputfile)
+    logger.debug(u"'Output file is %s" % outputfile)
+
+    return program, inputfile, outputfile
+
+
+if __name__ == u"__main__":
+    logFile = None
+    opts = None
+    program = u""
+
+    program, ifile, ofile = grabOptions(sys.argv)
+
+    if ifile == u"":
+        logFile = u"messages%stest_messages_2016_0804_2015.txt" % os.sep
+
+        try:
+            logFl = get_GQRX_Output()
+
+            for lf in logFl:
+                with open(lf, "rb") as f:
+                    messages = f.read()
+
+                msgs = getMessages(messages)
+
+                decodeMessages(msgs)
+
+        except KeyboardInterrupt:
+            logger.info(u"Bye ")

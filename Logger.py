@@ -4,7 +4,7 @@
 #
 __VERSION__ = 0.1
 __author__ = u'morrj140'
-
+import os
 import logging
 import logging.handlers
 
@@ -36,4 +36,7 @@ def setupLogging(name):
 
     return logger
 
-
+def ensure_dir(f):
+    d = os.path.dirname(f)
+    if not os.path.exists(d):
+        os.makedirs(d)
