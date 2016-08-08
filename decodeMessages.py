@@ -23,29 +23,29 @@ def printFields(fields):
 
             try:
                 if field[0] == u"t":
-                    logger.info(u"    Temperature                   : %d" % int(field[1:]))
+                    logger.info(u"  Temperature                    : %d" % int(field[1:]))
                 elif field[0] == u"h":
-                    logger.info(u"    Humidity                      : %d" % int(field[1:]))
+                    logger.info(u"  Humidity                      : %d" % int(field[1:]))
 
                 elif field[0] == u"r":
                     fv = int(field[1:]) * 0.01
-                    logger.info(u"    Rainfall in the last hour     : %2.1f" % fv)
+                    logger.info(u"  Rainfall in the last hour      : %2.1f" % fv)
                 elif field[0] == u"P":
                     fv = int(field[1:]) * 0.01
-                    logger.info(u"    Rainfall in the last 24 hour  : %2.1f" % fv)
+                    logger.info(u"  Rainfall in the last 24 hour   : %2.1f" % fv)
                 elif field[0] == u"p":
                     fv = int(field[1:]) * 0.01
-                    logger.info(u"    Rainfall since midnight       : %2.1f" % fv)
+                    logger.info(u"  Rainfall since midnight        : %2.1f" % fv)
 
                 elif field[0] == u"b":
-                    logger.info(u"    barometric pressure            : %d" % int(field[1:]))
+                    logger.info(u"  barometric pressure            : %d" % int(field[1:]))
 
                 elif field[0] == u"c":
-                    logger.info(u"    Wind Direction                 : %d" % int(field[1:]))
+                    logger.info(u"  Wind Direction                 : %d" % int(field[1:]))
                 elif field[0] == u"s":
-                    logger.info(u"    Sustained wind speed           : %s" % int(field[1:]))
+                    logger.info(u"  Sustained wind speed           : %s" % int(field[1:]))
                 elif field[0] == u"g":
-                    logger.info(u"    Wind Gust                      : %d" % int(field[1:]))
+                    logger.info(u"  Wind Gust                      : %d" % int(field[1:]))
 
                 elif field[-1:] in (u"N", u"S") and len(field) > 2:
                     logger.info(u"  Latitude                       : %s" % field)
