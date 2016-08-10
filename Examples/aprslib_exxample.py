@@ -18,10 +18,7 @@ if __name__ == u"__main__":
 
     messageNotSupported = "M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:_08031759c166s000g000t082r009p000P018h00b10156tU2k"
 
-    message = "M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:/021852z2757.15N/08147.20W_143/011g016t087r000p000P000h62b10180"
-
-
-
+    message = "M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:`n9Hl {k/]\"3r}"
 
     result = aprslib.parse(message)
 

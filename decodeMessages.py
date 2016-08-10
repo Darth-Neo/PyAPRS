@@ -5,14 +5,12 @@ import os
 import sys, getopt
 import time
 import re
-from Logger import *
+import aprslib
 
+from Logger import *
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
-
-def parseUnderScore(msg):
-    pass
 
 def printFields(fields):
     weather = [u"@", u"=", u"_", u"/", u"!"]
@@ -25,7 +23,7 @@ def printFields(fields):
                 if field[0] == u"t":
                     logger.info(u"  Temperature                    : %d" % int(field[1:]))
                 elif field[0] == u"h":
-                    logger.info(u"  Humidity                      : %d" % int(field[1:]))
+                    logger.info(u"  Humidity                       : %d" % int(field[1:]))
 
                 elif field[0] == u"r":
                     fv = int(field[1:]) * 0.01
@@ -38,7 +36,7 @@ def printFields(fields):
                     logger.info(u"  Rainfall since midnight        : %2.1f" % fv)
 
                 elif field[0] == u"b":
-                    logger.info(u"  barometric pressure            : %d" % int(field[1:]))
+                    logger.info(u"  barometric pressure            : %5.1f" % (float(field[1:]) * 0.1))
 
                 elif field[0] == u"c":
                     logger.info(u"  Wind Direction                 : %d" % int(field[1:]))
@@ -52,10 +50,18 @@ def printFields(fields):
                 elif field[-1:] in (u"E", u"W"):
                     logger.info(u"  Longitude                      : %s" % field)
 
-                elif field[-1:] in u"z":
-                    logger.info(u"  Zulu Time:                      %s:%s:%s" % (field[:2], field[2:4], field[4:6]))
+                elif field[-1:] in (u"z",):
+                    logger.info(u"  Zulu Time:                       %s:%s:%s" % (field[:2], field[2:4], field[4:6]))
+
+                elif field[0] in (u"\\", u"/", ):
+                    logger.info(u"  Alternate Symbol Table         : %s" % field[0])
+                elif field[0] in (u"v", ):
+                    logger.info(u"  Vehicle                        : %s" % field[0])
+
+                elif field[3] in (u"/",):
+                    logger.info(u"  Course/Speed                   : %s" % field[0])
                 else:
-                    logger.info(u"  Unknown                        : %s" % field)
+                    logger.info(u"  TBD                            : %s" % field)
 
 
             except Exception, msg:
@@ -73,8 +79,7 @@ def printFields(fields):
         fld = fields[len(fields) - 1]
         fl1 = fld[:1]
         fl2 = fld[1:3]
-        logger.info(u"%s : %s " % (fl1, fl2))
-
+        logger.info(u"  %s : %s " % (fl1, fl2))
 
 
 def parseMessage(msg, msg_bytes):
@@ -185,7 +190,7 @@ def decodeMessages(msgs):
             # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
 
             logger.debug(u"2 Raw Weather Report")
-            message_bytes = (1, 8, 1, 9, 1, 7, 4, 0)
+            message_bytes = (1, 8, 1, 9, 1, 0)
             fields = parseMessage(footer, message_bytes)
 
         elif re.match(r"^_.*", footer, re.M | re.I):
@@ -213,7 +218,7 @@ def decodeMessages(msgs):
 
             logger.info(u"_3b Positionless Weather Report")
             # MDHM
-            message_bytes = (1, 8, 4, 4, 4, 4, 4, 4, 3, 5, 0)
+            message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
             fields = parseMessage(footer, message_bytes)
 
         elif re.match(r"^=.*", footer, re.M | re.I):
@@ -226,9 +231,13 @@ def decodeMessages(msgs):
             # 08118.08W   Longitude
             # #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
 
-            logger.debug(u"4 Complete Weather Report")
+            logger.debug(u"4a Complete Weather Report")
             message_bytes = (1, 8, 1, 9, 0)
             fields = parseMessage(footer, message_bytes)
+
+            logger.debug(u"4b Complete Weather Report")
+            message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
+            # fields = parseMessage(footer, message_bytes)
 
         elif re.match(r"^@.*", footer, re.M | re.I):
             # __________________________________________________________________________________
@@ -249,7 +258,7 @@ def decodeMessages(msgs):
 
             if message[1][26] == u"_":
                 logger.info(u"5b Complete Weather Format")
-                message_bytes = (1, 7, 8, 1, 9, 1, 7, 0)
+                message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
                 fields = parseMessage(footer, message_bytes)
             else:
                 logger.info(u"5a Complete Weather Format")
@@ -276,16 +285,7 @@ def decodeMessages(msgs):
             # b10183     Barometric Pressure
 
             logger.debug(u"6 Complete Weather Report Format ")
-            message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
-            fields = parseMessage(footer, message_bytes)
-
-        elif re.match(r"`.*", footer, re.M | re.I):
-            # __________________________________________________________________________________
-            # ` is the APRS Data Type Identifier for a Mic-E packet
-            # `mWFl .k/]"4J}442.550MHz C100 +500[Freq MHz]=
-
-            logger.debug(u"7 APRS Data Type Identifier for a Mic-E packet")
-            message_bytes = (1, 0)
+            message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 1, 0)
             fields = parseMessage(footer, message_bytes)
 
         elif re.match(r";.*", footer, re.M | re.I):
@@ -299,7 +299,7 @@ def decodeMessages(msgs):
             # Symbol Table ID                       /
             # Long                                  08244.16Wr
             # Symbol Code                           /
-            # Course Speed, Power/Hieght/Gain/Dir   A=00002
+            # Course Speed, Power/Height/Gain/Dir   A=00002
             # Comment                               5AA/Cert-Node 273835
 
             logger.debug(u"8 Object Report Format")
@@ -326,6 +326,26 @@ def decodeMessages(msgs):
 
             message_bytes = (1, 9, 1, 67, 1, 0)
             fields = parseMessage(footer, message_bytes)
+
+        elif footer[0] == "`":
+            # __________________________________________________________________________________
+            # MicE Format
+            # `
+            m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
+            logger.debug(u"9 emic Format")
+
+            result = aprslib.parse(m)
+
+            for n, emix in enumerate(result):
+                part = result[emix]
+                if isinstance(part, (str, unicode)):
+                    logger.info(u"%s : %s" % (emix, part))
+                elif isinstance(part, int):
+                    logger.info(u"%s : %3d" % (emix, part))
+                elif isinstance(part, float):
+                    logger.info(u"%s : %3.3f" % (emix, part))
+                else:
+                    logger.info(u"%s : tbd" % emix)
 
         else:
             # __________________________________________________________________________________
