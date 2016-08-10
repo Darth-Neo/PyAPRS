@@ -333,7 +333,6 @@ def decodeMessages(msgs):
             # `
             m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
             logger.debug(u"9 emic Format")
-
             result = aprslib.parse(m)
 
             for n, emix in enumerate(result):
