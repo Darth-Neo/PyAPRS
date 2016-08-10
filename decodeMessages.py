@@ -329,7 +329,7 @@ def decodeMessages(msgs):
 
         elif footer[0] == "`":
             # __________________________________________________________________________________
-            # MicE Format 
+            # MicE Format
             # `
             m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
             logger.debug(u"9 emic Format")
