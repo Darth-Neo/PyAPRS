@@ -12,6 +12,11 @@ logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
 
+def convertULTW(field, msg, scale=1.0):
+    if field <> u"----":
+        fld = int(u"0x" + field, 16) * scale
+        logger.info(u"%7.2f : %s" % (fld, msg))
+
 def printFields(fields):
     weather = [u"@", u"=", u"_", u"/", u"!"]
 
@@ -71,6 +76,53 @@ def printFields(fields):
         for field in fields:
             if field[-1:] in (u"N", u"S", u"E", u"W"):
                 logger.info(u"LAT/LOG : %s" % field)
+
+    elif fields[0][:5] == u"$ULTW":
+        # $ULTW 0000 0000 01FF 0004 27C7 0002 CCD3 0001 026E 003A 050F 0004 0000
+
+        try:
+
+            msg = u"[1. Wind Speed Peak over last 5 min. (0.1 kph increments)]"
+            convertULTW(fields[1], msg, scale=0.1)
+
+            msg = u"[2. Wind Direction of Wind Speed Peak (0-255)]"
+            convertULTW(fields[2], msg)
+
+            msg = u"[3. Current Outdoor Temp (0.1 deg F increments)"
+            convertULTW(fields[3], msg, scale=0.1)
+
+            msg = u"[4. Rain Long Term Total (0.01 in. increments)]"
+            convertULTW(fields[4], msg, scale=0.01)
+
+            msg = u"[5. Current Barometer (0.1 mbar increments)"
+            convertULTW(fields[5], msg, scale=0.1)
+
+            # msg = u"[6. Barometer Delta Value(0.1 mbar increments)]"
+            # convertULTW(fields[6], msg, scale=0.1)
+
+            # msg = u"[7. Barometer Corr. Factor(LSW)]"
+            # convertULTW(fields[7], msg)
+
+            # msg = u"[8. Barometer Corr. Factor(MSW)]"
+            # convertULTW(fields[8], msg)
+
+            msg = u"[9. Current Outdoor Humidity (0.1 increments)]"
+            convertULTW(fields[9], msg, scale=0.1)
+
+            msg = u"[10. Date (day of year since January 1) ]"
+            convertULTW(fields[10], msg)
+
+            msg = u"[11. Time (minute of day)]"
+            convertULTW(fields[11], msg)
+
+            msg = u"[12. Today's Rain Total (0.01 inch increments)]"
+            convertULTW(fields[12], msg, scale=0.01)
+
+            msg = u"[13. Minute Wind Speed Average (0.1kph increments)]"
+            convertULTW(fields[13], msg, scale=0.1)
+
+        except KeyError, msg:
+            logger.warn(u"$ULTW Error : %s" % msg)
 
     else:
         logger.debug(u"Unknown")
@@ -174,9 +226,26 @@ def decodeMessages(msgs):
         if re.match(r"^\$ULTW.*", footer, re.M | re.I):
             # # __________________________________________________________________________________
             # $ indicates a Ultimeter 2000
-            # $ULTW0038003903AB208727BEFFEC87A10001----00D403CF00000011.
+            # $ULTW 0000 0000 01FF 0004 27C7 0002 CCD3 0001 026E 003A 050F 0004 0000
+            u"""
+            Field #1,  0000 = Wind Speed Peak over last 5 min. ( reported as 0.1 kph increments)
+            Field #2,  0000 = Wind Direction of Wind Speed Peak (0-255)
+            Field #3,  01FF = Current Outdoor Temp (reported as 0.1 deg F increments) i.e. 01FF = 511 decimal * 0.1 = 51.1 deg F
+            Field #4,  0004 = Rain Long Term Total (reported in 0.01 in. increments) 0.04 inches in this example
+            Field #5,  27C7 = Current Barometer (reported in 0.1 mbar increments) 27C7 = 10183 decimal = 1018.3
+            Field #6,  0002 = Barometer Delta Value(reported in 0.1 mbar increments)
+            Field #7,  CCD3 = Barometer Corr. Factor(LSW)
+            Field #8,  0001 = Barometer Corr. Factor(MSW)
+            Field #9,  026E = Current Outdoor Humidity (reported in 0.1% increments) You know the drill now...
+            Field #10, 003A = 10. Date (day of year since January 1) 58 decimal in this case... it was February 28th, 30 + 28 for Jan and Feb.
+            Field #11, 050F = Time (minute of day) 1295 in this case after conversion to decimal.
+            Field #12, 0004 = Today's Rain Total (reported as 0.01 inch increments)* 0.04 inches in this example
+            Field #13, 0000 = 1 Minute Wind Speed Average (reported in 0.1kph increments)*
+            """
 
             logger.debug(u"2 Ultimeter 2000")
+            message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
+            fields = parseMessage(footer, message_bytes)
 
         elif re.match(r"^!.*", footer, re.M | re.I):
             # __________________________________________________________________________________
