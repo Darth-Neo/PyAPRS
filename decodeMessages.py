@@ -17,6 +17,18 @@ def convertULTW(field, msg, scale=1.0):
         fld = int(u"0x" + field, 16) * scale
         logger.info(u"%7.2f : %s" % (fld, msg))
 
+def dumpMessage(result):
+    for n, emix in enumerate(result):
+        part = result[emix]
+        if isinstance(part, (str, unicode)):
+            logger.info(u"       %s : %s" % (emix, part))
+        elif isinstance(part, int):
+            logger.info(u"       %s : %3d" % (emix, part))
+        elif isinstance(part, float):
+            logger.info(u"       %s : %3.3f" % (emix, part))
+        else:
+            logger.info(u"       %s : tbd" % emix)
+
 def printFields(fields):
     weather = [u"@", u"=", u"_", u"/", u"!"]
 
@@ -133,7 +145,6 @@ def printFields(fields):
         fl2 = fld[1:3]
         logger.info(u"  %s : %s " % (fl1, fl2))
 
-
 def parseMessage(msg, msg_bytes):
     n = y = x = 0
     fields = list()
@@ -164,7 +175,6 @@ def parseMessage(msg, msg_bytes):
 
     return fields
 
-
 def get_GQRX_Output():
     logs = list()
     path = os.environ[u"HOME"] + os.sep + u"logs"
@@ -178,7 +188,6 @@ def get_GQRX_Output():
                 logs.append(rFile)
 
     return logs
-
 
 def getMessages(messages):
     aprs_messages = list()
@@ -205,221 +214,268 @@ def getMessages(messages):
 
     return aprs_messages
 
-
 def decodeMessages(msgs):
+
+    mf = list()
+
     for n, message in enumerate(msgs):
 
-        header = message[0].lstrip()
-        footer = message[1].lstrip()
+        try:
+            header = message[0].lstrip()
+            footer = message[1].lstrip()
 
-        logger.info(u"%3d [%s]" % (n, header[10:]))
-        logger.info(u"    [%s]" % footer)
+            logger.info(u"%3d [%s]" % (n, header[10:]))
+            logger.info(u"    [%s]" % footer)
 
-        if re.match(r"^ *[0-9]+:[0-9]+:[0-9]+.*", header, re.M | re.I):
-            logger.debug(u"1 H.%3d PF    : %s " % (n, header))
+            if re.match(r"^ *[0-9]+:[0-9]+:[0-9]+.*", header, re.M | re.I):
+                logger.debug(u"1 H.%3d PF    : %s " % (n, header))
 
-            if False:
-                m = header.split(u" ")
-                for x in m:
-                    logger.info(u"H.%3d.%s" % (n, x))
+                if False:
+                    m = header.split(u" ")
+                    for x in m:
+                        logger.info(u"H.%3d.%s" % (n, x))
 
-        if re.match(r"^\$ULTW.*", footer, re.M | re.I):
-            # # __________________________________________________________________________________
-            # $ indicates a Ultimeter 2000
-            # $ULTW 0000 0000 01FF 0004 27C7 0002 CCD3 0001 026E 003A 050F 0004 0000
-            u"""
-            Field #1,  0000 = Wind Speed Peak over last 5 min. ( reported as 0.1 kph increments)
-            Field #2,  0000 = Wind Direction of Wind Speed Peak (0-255)
-            Field #3,  01FF = Current Outdoor Temp (reported as 0.1 deg F increments) i.e. 01FF = 511 decimal * 0.1 = 51.1 deg F
-            Field #4,  0004 = Rain Long Term Total (reported in 0.01 in. increments) 0.04 inches in this example
-            Field #5,  27C7 = Current Barometer (reported in 0.1 mbar increments) 27C7 = 10183 decimal = 1018.3
-            Field #6,  0002 = Barometer Delta Value(reported in 0.1 mbar increments)
-            Field #7,  CCD3 = Barometer Corr. Factor(LSW)
-            Field #8,  0001 = Barometer Corr. Factor(MSW)
-            Field #9,  026E = Current Outdoor Humidity (reported in 0.1% increments) You know the drill now...
-            Field #10, 003A = 10. Date (day of year since January 1) 58 decimal in this case... it was February 28th, 30 + 28 for Jan and Feb.
-            Field #11, 050F = Time (minute of day) 1295 in this case after conversion to decimal.
-            Field #12, 0004 = Today's Rain Total (reported as 0.01 inch increments)* 0.04 inches in this example
-            Field #13, 0000 = 1 Minute Wind Speed Average (reported in 0.1kph increments)*
-            """
+            if re.match(r"^\$ULTW.*", footer, re.M | re.I):
+                # # __________________________________________________________________________________
+                # $ indicates a Ultimeter 2000
+                # $ULTW 0000 0000 01FF 0004 27C7 0002 CCD3 0001 026E 003A 050F 0004 0000
+                u"""
+                Field #1,  0000 = Wind Speed Peak over last 5 min. ( reported as 0.1 kph increments)
+                Field #2,  0000 = Wind Direction of Wind Speed Peak (0-255)
+                Field #3,  01FF = Current Outdoor Temp (reported as 0.1 deg F increments) i.e. 01FF = 511 decimal * 0.1 = 51.1 deg F
+                Field #4,  0004 = Rain Long Term Total (reported in 0.01 in. increments) 0.04 inches in this example
+                Field #5,  27C7 = Current Barometer (reported in 0.1 mbar increments) 27C7 = 10183 decimal = 1018.3
+                Field #6,  0002 = Barometer Delta Value(reported in 0.1 mbar increments)
+                Field #7,  CCD3 = Barometer Corr. Factor(LSW)
+                Field #8,  0001 = Barometer Corr. Factor(MSW)
+                Field #9,  026E = Current Outdoor Humidity (reported in 0.1% increments) You know the drill now...
+                Field #10, 003A = 10. Date (day of year since January 1) 58 decimal in this case... it was February 28th, 30 + 28 for Jan and Feb.
+                Field #11, 050F = Time (minute of day) 1295 in this case after conversion to decimal.
+                Field #12, 0004 = Today's Rain Total (reported as 0.01 inch increments)* 0.04 inches in this example
+                Field #13, 0000 = 1 Minute Wind Speed Average (reported in 0.1kph increments)*
+                """
 
-            logger.debug(u"2 Ultimeter 2000")
-            message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
-            fields = parseMessage(footer, message_bytes)
-
-        elif re.match(r"^!.*", footer, re.M | re.I):
-            # __________________________________________________________________________________
-            # Raw Weather Report - Ultimeter
-            # !2749.10N S 08215.39W # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
-            # !         Message
-            # 2749.10N  Latitude
-            # S         Symbol Table ID
-            # 08215.39W Longitude
-            # #
-            # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
-
-            logger.debug(u"2 Raw Weather Report")
-            message_bytes = (1, 8, 1, 9, 1, 0)
-            fields = parseMessage(footer, message_bytes)
-
-        elif re.match(r"^_.*", footer, re.M | re.I):
-            # __________________________________________________________________________________
-            # Positionless Weather Report Positionless Weather Data
-            # _ 0731 1701 c189 s004 g006 t094 r000 p000 P000 h00 b1016 5wDAV
-            # _ Message
-            # 0731 Month Day
-            # 1701 Time
-            # c189 Wind Direction
-            # s004 Wind Speed
-            # g006 Wind Gust in the last five minutes
-            # t094 Temperature
-            # r000 Rainfall in the last hour
-            # p000 Rainfall in the last 24 hours
-            # P000 Rainfall since midnight
-            # h00  Humidity
-            # b1016 Barometric Pressure
-            # 5     APRS Software
-            # wDAV  WX Unit -  WinAPRS
-
-            logger.info(u"_3a Positionless Weather Report")
-            message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 1, 4, 0)
-            # fields = parseMessages(footer, message_bytes)
-
-            logger.info(u"_3b Positionless Weather Report")
-            # MDHM
-            message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
-            fields = parseMessage(footer, message_bytes)
-
-        elif re.match(r"^=.*", footer, re.M | re.I):
-            # __________________________________________________________________________________
-            # Complete Weather Report Format - with Lat/Log position, no Timestamp
-            # =2835.63NS08118.08W#PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
-            # =           Message
-            # 2835.63N    Latitude
-            # S           Symbol Table ID
-            # 08118.08W   Longitude
-            # #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
-
-            logger.debug(u"4a Complete Weather Report")
-            message_bytes = (1, 8, 1, 9, 0)
-            fields = parseMessage(footer, message_bytes)
-
-            logger.debug(u"4b Complete Weather Report")
-            message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
-            # fields = parseMessage(footer, message_bytes)
-
-        elif re.match(r"^@.*", footer, re.M | re.I):
-            # __________________________________________________________________________________
-            # Complete Weather Format
-            # @220605z2831.07N/08142.92W_000/000g002t100r000p000P000h46b10144.DsVP
-            # @ 220605z 2831.07N / 08142.92W _000/000 g002 t100 r000 p000 P000 h46 b10144 .DsVP.
-            # @ Message
-            # 22 06 05z Zulu Time
-            #  2831.07N Latitude
-            # 08142.92W Longitude
-            # g002      Wind Gust in the last five minutes
-            # t100      Temperature
-            # r000      Rainfall in the last hour
-            # p000      Rainfall in the last 24 hours
-            # P000      Rainfall since midnight
-            # h46       Humidity
-            # b10144    Barometric Pressure
-
-            if message[1][26] == u"_":
-                logger.info(u"5b Complete Weather Format")
-                message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
+                logger.debug(u"1 Ultimeter 2000")
+                message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
                 fields = parseMessage(footer, message_bytes)
-            else:
-                logger.info(u"5a Complete Weather Format")
-                message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
-                fields = parseMessage(footer, message_bytes)
+                mf.append(fields)
 
-        elif re.match(r"^/.*", footer, re.M | re.I):
-            # __________________________________________________________________________________
-            # Complete Weather Report Format — with Compressed Lat/Long position, with Timestamp
-            # / 311704z 2 757.15N / 08147.20W _ 103/008 g012 t094 r000 p001 P000 h41 b1018 3
-            # / Message
-            # 31 17 04z  Zulu Time DHM
-            # 2757.15N   Latitude
-            # /          Symbol Table ID
-            # 08147.20W  Longitude
-            # _          Symbol Code
-            # 103/008    Wind Speed and Direction
-            # g012       Wind Gust in the last five minutes
-            # t094       Temperature
-            # r000       Rainfall in the last hour
-            # p001       Rainfall in the last 24 hours
-            # P000       Rainfall since midnight
-            # h41        Humidity
-            # b10183     Barometric Pressure
+            elif re.match(r"^!.*", footer, re.M | re.I):
+                # __________________________________________________________________________________
+                # Raw Weather Report - Ultimeter
+                # !2749.10N S 08215.39W # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
+                # !         Message
+                # 2749.10N  Latitude
+                # S         Symbol Table ID
+                # 08215.39W Longitude
+                # #
+                # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
+                if True:
+                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
+                    logger.debug(u"2 Raw Weather Report")
+                    fields = aprslib.parse(m)
+                    dumpMessage(fields)
+                    mf.append(fields)
 
-            logger.debug(u"6 Complete Weather Report Format ")
-            message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 1, 0)
-            fields = parseMessage(footer, message_bytes)
-
-        elif re.match(r";.*", footer, re.M | re.I):
-            # __________________________________________________________________________________
-            # ;145.650  *051916z2749.31N/08244.16Wr/A=000025AA/Cert-Node 273835
-            # ;
-            # Object Name                           145.650
-            # skip                                  *
-            # Time DHM or HMS                       051916z
-            # Lat                                   2749.31N
-            # Symbol Table ID                       /
-            # Long                                  08244.16Wr
-            # Symbol Code                           /
-            # Course Speed, Power/Height/Gain/Dir   A=00002
-            # Comment                               5AA/Cert-Node 273835
-
-            logger.debug(u"8 Object Report Format")
-
-            message_bytes = (1, 9, 1, 7, 8, 1, 9, 1, 7, 0)
-            fields = parseMessage(footer, message_bytes)
-
-            message_bytes = (1, 9, 1, 7, 13, 43)
-            #fields = parseMessage(footer, message_bytes)
-
-        elif re.match(r">.*", footer, re.M | re.I):
-            #
-            # >- aprsfl.net/weather - New Port Richey WX
-            logger.debug(u"9 Unknown")
-            logger.debug(u"9\theader [%s]" % header)
-            logger.debug(u"9\tfooter [%s]" % footer)
-
-        elif re.match(r":.*", footer, re.M | re.I):
-            # __________________________________________________________________________________
-            # :
-            # :
-
-            logger.debug(u"8 Object Report Format")
-
-            message_bytes = (1, 9, 1, 67, 1, 0)
-            fields = parseMessage(footer, message_bytes)
-
-        elif footer[0] == "`":
-            # __________________________________________________________________________________
-            # MicE Format
-            # `
-            m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
-            logger.debug(u"9 emic Format")
-            result = aprslib.parse(m)
-
-            for n, emix in enumerate(result):
-                part = result[emix]
-                if isinstance(part, (str, unicode)):
-                    logger.info(u"%s : %s" % (emix, part))
-                elif isinstance(part, int):
-                    logger.info(u"%s : %3d" % (emix, part))
-                elif isinstance(part, float):
-                    logger.info(u"%s : %3.3f" % (emix, part))
                 else:
-                    logger.info(u"%s : tbd" % emix)
+                    logger.debug(u"2 Raw Weather Report")
+                    message_bytes = (1, 8, 1, 9, 1, 0)
+                    fields = parseMessage(footer, message_bytes)
+                    mf.append(fields)
 
-        else:
-            # __________________________________________________________________________________
+            elif re.match(r"^_.*", footer, re.M | re.I):
+                # __________________________________________________________________________________
+                # Positionless Weather Report Positionless Weather Data
+                # _ 0731 1701 c189 s004 g006 t094 r000 p000 P000 h00 b1016 5wDAV
+                # _ Message
+                # 0731 Month Day
+                # 1701 Time
+                # c189 Wind Direction
+                # s004 Wind Speed
+                # g006 Wind Gust in the last five minutes
+                # t094 Temperature
+                # r000 Rainfall in the last hour
+                # p000 Rainfall in the last 24 hours
+                # P000 Rainfall since midnight
+                # h00  Humidity
+                # b1016 Barometric Pressure
+                # 5     APRS Software
+                # wDAV  WX Unit -  WinAPRS
 
-            logger.debug(u"No match - %s" % footer)
+                logger.info(u"_3a Positionless Weather Report")
+                message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 1, 4, 0)
+                fields = parseMessage(footer, message_bytes)
+                mf.append(fields)
 
+                logger.info(u"_3b Positionless Weather Report")
+                # MDHM
+                message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
+                fields = parseMessage(footer, message_bytes)
+                mf.append(fields)
+
+            elif re.match(r"^=.*", footer, re.M | re.I):
+                # __________________________________________________________________________________
+                # Complete Weather Report Format - with Lat/Log position, no Timestamp
+                # =2835.63NS08118.08W#PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
+                # =           Message
+                # 2835.63N    Latitude
+                # S           Symbol Table ID
+                # 08118.08W   Longitude
+                # #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
+
+                if True:
+                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
+                    logger.debug(u"4 Complete Weather Report")
+                    fields = aprslib.parse(m)
+                    dumpMessage(fields)
+                    mf.append(fields)
+
+                else:
+                    logger.debug(u"4a Complete Weather Report")
+                    message_bytes = (1, 8, 1, 9, 0)
+                    fields = parseMessage(footer, message_bytes)
+                    mf.append(fields)
+
+                    logger.debug(u"4b Complete Weather Report")
+                    message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
+                    # fields = parseMessage(footer, message_bytes)
+                    # mf.append(fields)
+
+            elif re.match(r"^@.*", footer, re.M | re.I):
+                # __________________________________________________________________________________
+                # Complete Weather Format
+                # @220605z2831.07N/08142.92W_000/000g002t100r000p000P000h46b10144.DsVP
+                # @ 220605z 2831.07N / 08142.92W _000/000 g002 t100 r000 p000 P000 h46 b10144 .DsVP.
+                # @ Message
+                # 22 06 05z Zulu Time
+                #  2831.07N Latitude
+                # 08142.92W Longitude
+                # g002      Wind Gust in the last five minutes
+                # t100      Temperature
+                # r000      Rainfall in the last hour
+                # p000      Rainfall in the last 24 hours
+                # P000      Rainfall since midnight
+                # h46       Humidity
+                # b10144    Barometric Pressure
+                if True:
+                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
+                    logger.info(u"5 Complete Weather Format")
+                    fields = aprslib.parse(m)
+                    dumpMessage(fields)
+                    mf.append(fields)
+                else:
+                    if message[1][26] == u"_":
+                        logger.info(u"5b Complete Weather Format")
+                        message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
+                        fields = parseMessage(footer, message_bytes)
+                        mf.append(fields)
+                    else:
+                        logger.info(u"5a Complete Weather Format")
+                        message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
+                        fields = parseMessage(footer, message_bytes)
+                        mf.append(fields)
+
+            elif re.match(r"^/.*", footer, re.M | re.I):
+                # __________________________________________________________________________________
+                # Complete Weather Report Format — with Compressed Lat/Long position, with Timestamp
+                # / 311704z 2 757.15N / 08147.20W _ 103/008 g012 t094 r000 p001 P000 h41 b1018 3
+                # / Message
+                # 31 17 04z  Zulu Time DHM
+                # 2757.15N   Latitude
+                # /          Symbol Table ID
+                # 08147.20W  Longitude
+                # _          Symbol Code
+                # 103/008    Wind Speed and Direction
+                # g012       Wind Gust in the last five minutes
+                # t094       Temperature
+                # r000       Rainfall in the last hour
+                # p001       Rainfall in the last 24 hours
+                # P000       Rainfall since midnight
+                # h41        Humidity
+                # b10183     Barometric Pressure
+                try:
+                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
+                    logger.debug(u"6 Complete Weather Report Format ")
+                    fields = aprslib.parse(m)
+                    dumpMessage(fields)
+                    mf.append(fields)
+                except Exception, msg:
+                    logger.warn(u"Trying alternate parsing : %s" % msg)
+                    logger.debug(u"6 Complete Weather Report Format ")
+                    message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 1, 0)
+                    fields = parseMessage(footer, message_bytes)
+                    mf.append(fields)
+
+            elif re.match(r"^;.*", footer, re.M | re.I):
+                # __________________________________________________________________________________
+                # ;145.650  *051916z2749.31N/08244.16Wr/A=000025AA/Cert-Node 273835
+                # ;
+                # Object Name                           145.650
+                # skip                                  *
+                # Time DHM or HMS                       051916z
+                # Lat                                   2749.31N
+                # Symbol Table ID                       /
+                # Long                                  08244.16Wr
+                # Symbol Code                           /
+                # Course Speed, Power/Height/Gain/Dir   A=00002
+                # Comment                               5AA/Cert-Node 273835
+
+                if True:
+                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
+                    logger.debug(u"8 Object Report Format")
+                    fields = aprslib.parse(m)
+                    dumpMessage(fields)
+                    mf.append(fields)
+                else:
+                    logger.debug(u"8 Object Report Format")
+
+                    message_bytes = (1, 9, 1, 7, 8, 1, 9, 1, 7, 0)
+                    fields = parseMessage(footer, message_bytes)
+                    mf.append(fields)
+
+                    message_bytes = (1, 9, 1, 7, 13, 43)
+                    #fields = parseMessage(footer, message_bytes)
+                    #mf.append(fields)
+
+            elif re.match(r"^>.*", footer, re.M | re.I):
+                #
+                # >- aprsfl.net/weather - New Port Richey WX
+
+                m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
+                logger.debug(u"9 Unknown")
+                fields = aprslib.parse(m)
+                dumpMessage(fields)
+                mf.append(fields)
+
+            elif re.match(r"^:.*", footer, re.M | re.I):
+                # __________________________________________________________________________________
+                # :
+                # :
+
+                logger.debug(u"8 Object Report Format")
+
+                message_bytes = (1, 9, 1, 67, 1, 0)
+                fields = parseMessage(footer, message_bytes)
+                mf.append(fields)
+
+            elif re.match(r"^`.*", footer, re.M | re.I):
+                # __________________________________________________________________________________
+                # MicE Format
+                # `
+                m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
+                logger.debug(u"9 emic Format")
+                fields = aprslib.parse(m)
+                dumpMessage(fields)
+                mf.append(fields)
+
+            else:
+                # __________________________________________________________________________________
+                logger.debug(u"No match - %s" % footer)
+
+        except Exception, msg:
+            logger.warn(u"decodeMesssage : %s" % msg)
+            continue
+    return mf
 
 def grabOptions(av):
     program = u""
@@ -470,7 +526,7 @@ if __name__ == u"__main__":
 
                 msgs = getMessages(messages)
 
-                decodeMessages(msgs)
+                mf = decodeMessages(msgs)
 
         except KeyboardInterrupt:
             logger.info(u"Bye ")
