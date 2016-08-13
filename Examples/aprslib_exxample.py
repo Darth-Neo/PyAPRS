@@ -5,7 +5,7 @@ if __name__ == u"__main__":
     a = """17:31:31$ fm W4KBW-9 to R8SU7P-0 via W4MCO-10,WC4PEM-14,WIDE2-0 UIv PID=F0
           `m0xmJ_k/`"47}Just truckin'_%"""
 
-    message0 = "M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:    `m0xmJ_k/`\"47}Just truckin'_%"
+    message0 = "M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:`m0xmJ_k/`\"47}Just truckin'_%"
     message1 = "M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:    'n/Ql .#/]146.520MHz Citrus Digi  ="
     message2 = "M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:    /021746z2757.15N/08147.20W_111/012g020t090r000p000P000h54b10173"
     message3 = "M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:    =2830.06N/08116.63W-PHG2060/WinAPRS 2.4.7 -FLORAORLANDO -247-<630>"
@@ -20,7 +20,7 @@ if __name__ == u"__main__":
 
     message = "M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:/021852z2757.15N/08147.20W_143/011g016t087r000p000P000h62b10180"
 
-    result = aprslib.parse(message)
+    result = aprslib.parse(message0)
 
     "FROM:  M0XER-4"
     "       > "

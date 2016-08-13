@@ -10,7 +10,6 @@ import time
 from datetime import datetime
 from dateutil import tz
 from datetime import date
-
 from pymongo import *
 
 from Logger import *
@@ -21,7 +20,6 @@ logger.setLevel(INFO)
 field_errors = 0
 field_count = 0
 client = MongoClient(u'mongodb://localhost:27017/')
-
 
 def insert_Message(message, header=None, footer=None):
     global client
@@ -115,13 +113,12 @@ def parse_Fields(fields):
     :param fields:
     :return:
     """
-
+    weather = [u"@", u"=", u"_", u"/", u"!"]
     fld = dict()
     global field_errors
     global field_count
 
-    # Weather
-    weather = [u"@", u"=", u"_", u"/", u"!"]
+    # Weather Messages
     if fields[0] in weather:
         fld[u"Message_Type"] = fields[0]
         field_count += len(fields)
@@ -215,7 +212,7 @@ def parse_Fields(fields):
                 field_errors += 1
         return fld
 
-    # ULTW
+    # ULTW Messages
     elif fields[0][:5] == u"$ULTW":
         # $ULTW 0000 0000 01FF 0004 27C7 0002 CCD3 0001 026E 003A 050F 0004 0000
         fld[u"Message_Type"] = u"ULTW"
@@ -387,7 +384,7 @@ def decode_APRS_Messages(msgs):
             logger.debug(u"%3d [%s]" % (n, header[10:]))
             logger.debug(u"    [%s]" % footer)
 
-            # Counter
+            # Message Counter
             if footer[0] in mt:
                 mt[footer[0]] += 1
             else:
@@ -428,7 +425,7 @@ def decode_APRS_Messages(msgs):
                 fld = parse_Fields(fields)
                 insert_Message(fld, header=header, footer=footer)
 
-            # 2
+            # 2 - aprslib
             elif re.match(r"^!.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Raw Weather Report - Ultimeter
@@ -474,8 +471,8 @@ def decode_APRS_Messages(msgs):
                 # wDAV  WX Unit -  WinAPRS
 
                 try: #if True:
-                    logger.debug(u"_3b Positionless Weather Report")
                     # MDHM
+                    logger.debug(u"_3b Positionless Weather Report")
                     message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
                     fields = parse_APRS_Message(footer, message_bytes)
                     fld = parse_Fields(fields)
@@ -488,7 +485,7 @@ def decode_APRS_Messages(msgs):
                     fld = parse_Fields(fields)
                     insert_Message(fld, header=header, footer=footer)
 
-            # 4
+            # 4 aprslib
             elif re.match(r"^=.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Complete Weather Report Format - with Lat/Log position, no Timestamp
@@ -521,7 +518,7 @@ def decode_APRS_Messages(msgs):
                         fld = parse_Fields(fields)
                         insert_Message(fld, header=header, footer=footer)
 
-            # 5
+            # 5 aprslib
             elif re.match(r"^@.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Complete Weather Format
@@ -544,6 +541,7 @@ def decode_APRS_Messages(msgs):
                     fields = aprslib.parse(m)
                     log_APRS_LIB_Message(fields)
                     insert_Message(fields)
+
                 except Exception, msg:
                     try: # if message[1][26] == u"_" and False:
                         logger.debug(u"5b Complete Weather Format")
@@ -558,7 +556,7 @@ def decode_APRS_Messages(msgs):
                         fld = parse_Fields(fields)
                         insert_Message(fld, header=header, footer=footer)
 
-            # 6
+            # 6 aprslib
             elif re.match(r"^/.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Complete Weather Report Format — with Compressed Lat/Long position, with Timestamp
@@ -595,7 +593,7 @@ def decode_APRS_Messages(msgs):
                     except Exception, msg:
                         logger.debug(u"Trying alternate parsing : %s" % msg)
 
-            # 7
+            # 7 aprslib
             elif re.match(r"^;.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # ;145.650  *051916z2749.31N/08244.16Wr/A=000025AA/Cert-Node 273835
@@ -632,7 +630,7 @@ def decode_APRS_Messages(msgs):
                         fld = parse_Fields(fields)
                         insert_Message(fld, header=header, footer=footer)
 
-            # 8
+            # 8 aprslib
             elif re.match(r"^>.*", footer, re.M | re.I):
                 #
                 # >- aprsfl.net/weather - New Port Richey WX
@@ -654,7 +652,7 @@ def decode_APRS_Messages(msgs):
                 fld = parse_Fields(fields)
                 insert_Message(fld, header=header, footer=footer)
 
-            # 10
+            # 10 aprslib
             elif re.match(r"^`.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # MicE Format
