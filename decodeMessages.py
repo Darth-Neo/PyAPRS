@@ -35,6 +35,7 @@ def insert_Message(message, header=None, footer=None):
         if header is not None and footer is not None:
             message[u"Header"] = header
             message[u"Footer"] = footer
+            message.update(message)
 
     except Exception, msg:
         logger.warn(u"%s" % msg)
@@ -80,15 +81,18 @@ def log_APRS_LIB_Message(result):
     """
 
     for n, emix in enumerate(result):
-        part = result[emix]
-        if isinstance(part, (str, unicode)):
-            logger.debug(u"       %s : %s" % (emix, part))
-        elif isinstance(part, int):
-            logger.debug(u"       %s : %3d" % (emix, part))
-        elif isinstance(part, float):
-            logger.debug(u"       %s : %3.3f" % (emix, part))
-        else:
-            logger.debug(u"       %s : tbd" % emix)
+        try:
+            part = result[emix]
+            if isinstance(part, (str, unicode)):
+                logger.info(u"       %s : %s" % (emix, part))
+            elif isinstance(part, int):
+                logger.info(u"       %s : %3d" % (emix, part))
+            elif isinstance(part, float):
+                logger.info(u"       %s : %3.3f" % (emix, part))
+            else:
+                logger.info(u"       %s : tbd" % emix)
+        except Exception, msg:
+            logger.error(u"%s" % msg)
 
 
 def parse_ULTW_Message(field, msg, scale=1.0):
@@ -100,11 +104,35 @@ def parse_ULTW_Message(field, msg, scale=1.0):
     :return:
     """
     fld = None
-    if field <> u"----":
-        fld = int(u"0x" + field, 16) * scale
-        logger.debug(u"%7.2f : %s" % (fld, msg))
+    try:
+        #if field <> u"----":
+        if re.match(r"^[0-9A-Za-z]{4}", field, re.M | re.I):
+            fld = int(u"0x" + field, 16) * scale
+            logger.info(u"%7.2f : %s" % (fld, msg))
+    except Exception, msg:
+        logger.info(u"%s : %s" % (msg, field))
 
     return fld
+
+
+def parse_Zulu_EDT(pt):
+
+    try:
+        if True:
+            t = int(u"0x" + pt, 16)
+        else:
+            t = int(pt)
+
+        hours = t / 60
+        minutes = t % 60
+
+        zulu = u"%2d:%2d" % (hours, minutes)
+
+    except Exception, msg:
+        logger.info(u"%s" % msg)
+        return pt
+
+    return zulu
 
 
 def parse_Fields(fields):
@@ -123,75 +151,74 @@ def parse_Fields(fields):
         fld[u"Message_Type"] = fields[0]
         field_count += len(fields)
         for n, field in enumerate(fields[1:]):
-            logger.debug(u"%03d : %s" % (n, field))
+            # logger.debug(u"%03d : %s" % (n, field))
 
             try:
                 if field[0] == u"t":
                     n = 1
-                    logger.debug(u"%6d : [ Temperature ]" % int(field[1:]))
+                    logger.info(u"%6d : [ Temperature ]" % int(field[1:]))
                     fld[u"Temperature"] = int(field[1:])
                 elif field[0] == u"h":
                     n = 2
-                    logger.debug(u"%6d : [ Humidity ]" % int(field[1:]))
+                    logger.info(u"%6d : [ Humidity ]" % int(field[1:]))
                     fld[u"Humidity"] = int(field[1:])
 
                 elif field[0] == u"r":
                     n = 4
                     if len(field[1:]) > 2:
                         fv = int(field[1:]) * 0.01
-                        logger.debug(u"%6.1f : [ Rainfall in the last hour ]" % fv)
+                        logger.info(u"%6.1f : [ Rainfall in the last hour ]" % fv)
                         fld[u"Rainfall in the last hour"] = fv
                 elif field[0] == u"P":
                     n = 5
                     fv = int(field[1:]) * 0.01
-                    logger.debug(u"%6.1f : [ Rainfall in the last 24 hour]" % fv)
+                    logger.info(u"%6.1f : [ Rainfall in the last 24 hour]" % fv)
                     fld[u"Rainfall in the last 24 hour"] = fv
                 elif field[0] == u"p":
                     n = 6
                     fv = int(field[1:]) * 0.01
-                    logger.debug(u"%6.1f : [ Rainfall since midnight ]" % fv)
+                    logger.info(u"%6.1f : [ Rainfall since midnight ]" % fv)
                     fld[u"Rainfall since midnight"] = fv
 
                 elif field[0] == u"b":
                     n = 7
                     fv = float(field[1:]) * 0.1
-                    logger.debug(u"%5.1f : [ Barometric Pressure] " % fv)
+                    logger.info(u"%5.1f : [ Barometric Pressure] " % fv)
                     fld[u"Barometric Pressure"] = fv
 
                 elif field[0] == u"c":
                     n = 8
                     fv = int(field[1:])
-                    logger.debug(u"%6d : [ Wind Direction ]" % fv)
+                    logger.info(u"%6d : [ Wind Direction ]" % fv)
                     fld[u"Wind Direction"] = fv
                 elif field[0] == u"s":
                     n = 9
                     fv = int(field[1:])
-                    logger.debug(u"%6d : [ Sustained Wind Speed ]" % fv)
+                    logger.info(u"%6d : [ Sustained Wind Speed ]" % fv)
                     fld[u"Sustained wind speed"] = fv
                 elif field[0] == u"g":
                     n = 10
                     fv = int(field[1:])
-                    logger.debug(u"%6d : [ Wind Gust]" % fv)
+                    logger.info(u"%6d : [ Wind Gust]" % fv)
                     fld[u"Wind Gust"] = fv
 
                 elif field[-1:] in (u"N", u"S"): #  and len(field) > 2:
                     n = 11
-                    logger.debug(u"%6s : [ Latitude ]" % field)
+                    logger.info(u"%6s : [ Latitude ]" % field)
                     fld[u"Latitude"] = field
                 elif field[-1:] in (u"E", u"W"):
                     n = 12
-                    logger.debug(u"%6s : [ Longitude ]" % field)
+                    logger.info(u"%6s : [ Longitude ]" % field)
                     fld[u"Longitude"] = field
 
                 elif field[-1:] in (u"z",):
                     n = 14
                     zt = u"%s:%s:%s" % (field[:2], field[2:4], field[4:6])
-                    logger.debug(u"%s : [ Zulu Time ]" % zt)
                     fld[u"Zulu Time"] = zt
 
                 elif field[0] in (u"\\", u"/",):
                     n = 15
-                    logger.debug(u"%6s : [ Alternate Symbol Table ]" % field[0])
+                    logger.info(u"%6s : [ Alternate Symbol Table ]" % field[0])
                     fld[u"Alternate Symbol Table"] = field[0]
                 elif field[0] in (u"v",):
                     n = 16
@@ -200,11 +227,11 @@ def parse_Fields(fields):
 
                 elif field[3] in (u"/",):
                     n = 17
-                    logger.debug(u"%6s : [ Course/Speed ] " % field[0])
+                    logger.info(u"%6s : [ Course/Speed ] " % field[0])
                     fld[u"Course/Speed"] = field[0]
                 else:
                     n = 18
-                    logger.debug(u"%6s : [ TBD ]" % field)
+                    logger.info(u"%6s : [ TBD ]" % field)
                     fld[u"TBD"] = field[0]
 
             except Exception, msg:
@@ -260,6 +287,9 @@ def parse_Fields(fields):
             fld[msg] = parse_ULTW_Message(fields[10], msg)
 
             n = 30
+            msg2 = u"Time UTC"
+            pzt = parse_Zulu_EDT(fields[11])
+            fld[msg2] = pzt
             msg = u"Time (minute of day)"
             fld[msg] = parse_ULTW_Message(fields[11], msg)
 
@@ -283,21 +313,20 @@ def parse_Fields(fields):
         return None
 
 
-def parse_Zulu_EDT(t):
-    pass
-    # METHOD 2: Auto-detect zones:
-    from_zone = tz.tzutc()
-    to_zone = tz.tzlocal()
+def parse_aprs_header(header, footer, n=0):
+    # fm WC4PEM-10 to APMI06-0 via WC4PEM-14,WIDE2-1 UI  pid=F0
+    addresses = header.split(u" ")
+    fm = addresses[2]
+    to = addresses[4]
+    via = addresses[6]
 
-    # utc = datetime.utcnow()
-    utc = datetime.strptime(t, '%Y-%m-%d %H:%M:%S')
+    # M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2
+    aprs_addresses = u"%s>%s,%s:%s" % (fm, to, via, footer)
 
-    # Tell the datetime object that it's in UTC time zone since
-    # datetime objects are 'naive' by default
-    utc = utc.replace(tzinfo=from_zone)
+    logger.debug(u"%3d [%s]" % (n, header[10:]))
+    logger.debug(u"    [%s]" % footer)
 
-    # Convert time zone
-    central = utc.astimezone(to_zone)
+    return aprs_addresses
 
 
 def parse_APRS_Message(msg, msg_bytes):
@@ -317,7 +346,7 @@ def parse_APRS_Message(msg, msg_bytes):
             else:
                 field = msg[x:y]
                 fields.append(field)
-            logger.debug(u"Field %d : %s" % (n, field))
+            # logger.debug(u"Field %d : %s" % (n, field))
             x = y
             n += 1
             if x >= ml:
@@ -355,17 +384,22 @@ def get_APRS_Messages(messages):
     return aprs_messages
 
 
-def get_GQRX_LogFiles():
+def get_GQRX_LogFiles(test=True):
     logs = list()
     path = os.environ[u"HOME"] + os.sep + u"logs"
 
-    for root, dirs, files in os.walk(path, topdown=False):
-        for name in files:
-            rFile = os.path.join(root, name)
-            logger.debug(u"%s" % rFile)
+    if test is True:
+        rFile = u"test" + os.sep + u"test_messages.txt"
+        logs.append(rFile)
 
-            if re.match(r"^gqrx-[0-9]+-[0-9]+-[0-9]+-[0-9]+-[0-9]+.log", name, re.M | re.I):
-                logs.append(rFile)
+    else:
+        for root, dirs, files in os.walk(path, topdown=False):
+            for name in files:
+                rFile = os.path.join(root, name)
+                logger.debug(u"%s" % rFile)
+
+                if re.match(r"^gqrx-[0-9]+-[0-9]+-[0-9]+-[0-9]+-[0-9]+.log", name, re.M | re.I):
+                    logs.append(rFile)
 
     return logs
 
@@ -373,6 +407,7 @@ def get_GQRX_LogFiles():
 def decode_APRS_Messages(msgs):
 
     global field_errors
+    fm = to = via = 0
     mt = dict()
 
     for n, message in enumerate(msgs):
@@ -381,8 +416,10 @@ def decode_APRS_Messages(msgs):
             header = message[0].lstrip()
             footer = message[1].lstrip()
 
-            logger.debug(u"%3d [%s]" % (n, header[10:]))
-            logger.debug(u"    [%s]" % footer)
+            aprs_addresses = parse_aprs_header(header, footer, n=n)
+
+            logger.info(u"%3d [%s]" % (n, header[10:]))
+            logger.info(u"    [%s]" % footer)
 
             # Message Counter
             if footer[0] in mt:
@@ -418,12 +455,14 @@ def decode_APRS_Messages(msgs):
                 Field #12, 0004 = Today's Rain Total (reported as 0.01 inch increments)
                 Field #13, 0000 = 1 Minute Wind Speed Average (reported in 0.1kph increments)
                 """
-
-                logger.debug(u"1 Ultimeter 2000")
-                message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
-                fields = parse_APRS_Message(footer, message_bytes)
-                fld = parse_Fields(fields)
-                insert_Message(fld, header=header, footer=footer)
+                try:
+                    logger.info(u"1 Ultimeter 2000")
+                    message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
+                    fields = parse_APRS_Message(footer, message_bytes)
+                    fld = parse_Fields(fields)
+                    insert_Message(fld, header=header, footer=footer)
+                except Exception, msg:
+                    logger.error(u"1 %s" % msg)
 
             # 2 - aprslib
             elif re.match(r"^!.*", footer, re.M | re.I):
@@ -436,15 +475,15 @@ def decode_APRS_Messages(msgs):
                 # 08215.39W Longitude
                 # #
                 # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
-                if True:
-                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
-                    logger.debug(u"2 Raw Weather Report")
-                    fields = aprslib.parse(m)
+                try:
+                    logger.info(u"2a Raw Weather Report")
+                    fields = aprslib.parse(aprs_addresses)
                     log_APRS_LIB_Message(fields)
                     insert_Message(fields)
 
-                else:
-                    logger.debug(u"2 Raw Weather Report")
+                except Exception, msg:
+                    logger.warn(u"2 %s" % msg)
+                    logger.info(u"2b Raw Weather Report")
                     message_bytes = (1, 8, 1, 9, 1, 0)
                     fields = parse_APRS_Message(footer, message_bytes)
                     fld = parse_Fields(fields)
@@ -470,16 +509,17 @@ def decode_APRS_Messages(msgs):
                 # 5     APRS Software
                 # wDAV  WX Unit -  WinAPRS
 
-                try: #if True:
+                try:
                     # MDHM
-                    logger.debug(u"_3b Positionless Weather Report")
+                    logger.info(u"3b Positionless Weather Report")
                     message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
                     fields = parse_APRS_Message(footer, message_bytes)
                     fld = parse_Fields(fields)
                     insert_Message(fld, header=header, footer=footer)
 
-                except Exception, msg:  # else:
-                    logger.debug(u"_3a Positionless Weather Report")
+                except Exception, msg:
+                    logger.warn(u"3 %s" % msg)
+                    logger.info(u"3a Positionless Weather Report")
                     message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 5, 1, 4, 0)
                     fields = parse_APRS_Message(footer, message_bytes)
                     fld = parse_Fields(fields)
@@ -496,23 +536,24 @@ def decode_APRS_Messages(msgs):
                 # 08118.08W   Longitude
                 # #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
 
-                if True:
-                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
-                    logger.debug(u"4 Complete Weather Report")
-                    fields = aprslib.parse(m)
+                try:
+                    logger.info(u"4 Complete Weather Report")
+                    fields = aprslib.parse(aprs_addresses)
                     log_APRS_LIB_Message(fields)
                     insert_Message(fields)
 
-                else:
-                    try: #if True:
-                        logger.debug(u"4a Complete Weather Report")
+                except Exception, msg:
+                    logger.warn(u"4 %s" % msg)
+                    try:
+                        logger.info(u"4a Complete Weather Report")
                         message_bytes = (1, 8, 1, 9, 0)
                         fields = parse_APRS_Message(footer, message_bytes)
                         fld = parse_Fields(fields)
                         insert_Message(fld, header=header, footer=footer)
 
                     except Exception, msg:
-                        logger.debug(u"4b Complete Weather Report")
+                        logger.warn(u"4 %s" % msg)
+                        logger.info(u"4b Complete Weather Report")
                         message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                         fields = parse_APRS_Message(footer, message_bytes)
                         fld = parse_Fields(fields)
@@ -535,22 +576,24 @@ def decode_APRS_Messages(msgs):
                 # P000      Rainfall since midnight
                 # h46       Humidity
                 # b10144    Barometric Pressure
-                try: # if False:
-                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
-                    logger.debug(u"5 Complete Weather Format")
-                    fields = aprslib.parse(m)
+                try:
+                    logger.info(u"5 Complete Weather Format")
+                    fields = aprslib.parse(aprs_addresses)
                     log_APRS_LIB_Message(fields)
                     insert_Message(fields)
 
                 except Exception, msg:
-                    try: # if message[1][26] == u"_" and False:
-                        logger.debug(u"5b Complete Weather Format")
+                    logger.warn(u"5b %s" % msg)
+                    try:
+                        logger.info(u"5b Complete Weather Format")
                         message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
                         fields = parse_APRS_Message(footer, message_bytes)
                         fld = parse_Fields(fields)
                         insert_Message(fld, header=header, footer=footer)
-                    except Exception, msg: # else:
-                        logger.debug(u"5a Complete Weather Format")
+
+                    except Exception, msg:
+                        logger.warn(u"5c %s" % msg)
+                        logger.info(u"5c Complete Weather Format")
                         message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                         fields = parse_APRS_Message(footer, message_bytes)
                         fld = parse_Fields(fields)
@@ -576,22 +619,22 @@ def decode_APRS_Messages(msgs):
                 # h41        Humidity
                 # b10183     Barometric Pressure
                 try:
-                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
-                    logger.debug(u"6 Complete Weather Report Format ")
-                    fields = aprslib.parse(m)
+                    logger.info(u"6 Complete Weather Report Format ")
+                    fields = aprslib.parse(aprs_addresses)
                     log_APRS_LIB_Message(fields)
                     insert_Message(fields)
 
                 except Exception, msg:
+                    logger.warn(u"5 %s" % msg)
                     try:
-                        logger.debug(u"6 Complete Weather Report Format ")
+                        logger.info(u"6 Complete Weather Report Format ")
                         message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 1, 0)
                         fields = parse_APRS_Message(footer, message_bytes)
                         fld = parse_Fields(fields)
                         insert_Message(fld)
 
                     except Exception, msg:
-                        logger.debug(u"Trying alternate parsing : %s" % msg)
+                        logger.error(u"6 Trying alternate parsing : %s" % msg)
 
             # 7 aprslib
             elif re.match(r"^;.*", footer, re.M | re.I):
@@ -609,22 +652,22 @@ def decode_APRS_Messages(msgs):
                 # Comment                               5AA/Cert-Node 273835
 
                 try:
-                    m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
-                    logger.debug(u"7 Object Report Format")
-                    fields = aprslib.parse(m)
+                    logger.info(u"7 Object Report Format")
+                    fields = aprslib.parse(aprs_addresses)
                     log_APRS_LIB_Message(fields)
                     insert_Message(fields)
 
-                except Exception, msg:   #else:
-                    logger.debug(u"7 Object Report Format")
+                except Exception, msg:
+                    logger.warn(u"7 Object Report Format")
 
-                    try: #if True:
+                    try:
                         message_bytes = (1, 9, 1, 7, 8, 1, 9, 1, 7, 0)
                         fields = parse_APRS_Message(footer, message_bytes)
                         fld = parse_Fields(fields)
                         insert_Message(fld, header=header, footer=footer)
 
                     except Exception, msg: #else:
+                        logger.warn(u"7 %s" % msg)
                         message_bytes = (1, 9, 1, 7, 13, 43)
                         fields = parse_APRS_Message(footer, message_bytes)
                         fld = parse_Fields(fields)
@@ -634,32 +677,40 @@ def decode_APRS_Messages(msgs):
             elif re.match(r"^>.*", footer, re.M | re.I):
                 #
                 # >- aprsfl.net/weather - New Port Richey WX
-                m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
-                logger.debug(u"8 Unknown")
-                fields = aprslib.parse(m)
-                log_APRS_LIB_Message(fields)
-                insert_Message(fields, header=header, footer=footer)
+                try:
+                    logger.info(u"8 Unknown")
+                    fields = aprslib.parse(aprs_addresses)
+                    log_APRS_LIB_Message(fields)
+                    insert_Message(fields, header=header, footer=footer)
 
-            # 9
+                except Exception, msg:
+                    logger.error(u"8 %s" % msg)
+
+            # 9 aprslib
             elif re.match(r"^:.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # :
                 # :
+                logger.info(u"9 Object Report Format")
 
-                logger.debug(u"9 Object Report Format")
-                message_bytes = (1, 9, 1, 67, 1, 0)
-                fields = parse_APRS_Message(footer, message_bytes)
-                fld = parse_Fields(fields)
-                insert_Message(fld, header=header, footer=footer)
+                try:
+                    fields = aprslib.parse(aprs_addresses)
+                    log_APRS_LIB_Message(fields)
+                    insert_Message(fields, header=header, footer=footer)
+                except Exception, msg:
+                    logger.warn(u"9 %s" % msg)
+                    message_bytes = (1, 9, 1, 67, 1, 0)
+                    fields = parse_APRS_Message(footer, message_bytes)
+                    fld = parse_Fields(fields)
+                    insert_Message(fld, header=header, footer=footer)
 
             # 10 aprslib
             elif re.match(r"^`.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # MicE Format
                 # `
-                m = u"M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2:%s" % footer
-                logger.debug(u"9 emic Format - withheld")
-                fields = aprslib.parse(m)
+                logger.info(u"10 eMic Format")
+                fields = aprslib.parse(aprs_addresses)
                 log_APRS_LIB_Message(fields)
                 insert_Message(fields, header=header, footer=footer)
 
@@ -668,7 +719,7 @@ def decode_APRS_Messages(msgs):
                 logger.debug(u"No match - %s" % footer)
 
         except Exception, msg:
-            logger.debug(u"decodeMesssage : %s" % msg)
+            logger.error(u"decodeMesssage : %s" % msg)
             field_errors += 1
             continue
 
@@ -685,7 +736,7 @@ if __name__ == u"__main__":
     # while True:
     if True:
         try:
-            logFl = get_GQRX_LogFiles()
+            logFl = get_GQRX_LogFiles(test=True)
 
             for lf in logFl:
                 logger.info(u"Reading : %s" % lf)
