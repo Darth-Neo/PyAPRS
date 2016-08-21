@@ -6,6 +6,7 @@ import sys, getopt
 import time
 import re
 import aprslib
+import hashlib
 import time
 from datetime import datetime
 from dateutil import tz
@@ -20,22 +21,35 @@ logger.setLevel(INFO)
 field_errors = 0
 field_count = 0
 client = MongoClient(u'mongodb://localhost:27017/')
+CLEAR_DB = False # True
 
-def insert_Message(message, header=None, footer=None):
+def insert_Message(message, header=None, footer=None, hash=False):
     global client
-    c = None
+    global CLEAR_DB
+
+    db = client[u"local"]
+    c = db[u'Weather']
+
+    if CLEAR_DB is True:
+        logger.info(u"Reset MongoDB")
+        c.remove()
+        CLEAR_DB = False
 
     if message is None:
         return None
 
     try:
-        db = client[u"local"]
-        c = db[u'Weather']
-
         if header is not None and footer is not None:
-            message[u"Header"] = header
-            message[u"Footer"] = footer
-            message.update(message)
+            msg = dict()
+            msg[u"Header"] = header
+            msg[u"Footer"] = footer
+
+            if hash is True:
+                hs = header + footer
+                ho = hashlib.sha512(hs)
+                msg[u"Hash"] = u"%s" % ho.digest().decode(u"utf8", errors=u"replace")
+
+            message.update(msg)
 
     except Exception, msg:
         logger.warn(u"%s" % msg)
@@ -464,7 +478,7 @@ def decode_APRS_Messages(msgs):
                 except Exception, msg:
                     logger.error(u"1 %s" % msg)
 
-            # 2 - aprslib
+            # 2 - aprslib !
             elif re.match(r"^!.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Raw Weather Report - Ultimeter
@@ -489,7 +503,7 @@ def decode_APRS_Messages(msgs):
                     fld = parse_Fields(fields)
                     insert_Message(fld, header=header, footer=footer)
 
-            # 3
+            # 3 _
             elif re.match(r"^_.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Positionless Weather Report Positionless Weather Data
@@ -525,7 +539,7 @@ def decode_APRS_Messages(msgs):
                     fld = parse_Fields(fields)
                     insert_Message(fld, header=header, footer=footer)
 
-            # 4 aprslib
+            # 4 aprslib =
             elif re.match(r"^=.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Complete Weather Report Format - with Lat/Log position, no Timestamp
@@ -559,7 +573,7 @@ def decode_APRS_Messages(msgs):
                         fld = parse_Fields(fields)
                         insert_Message(fld, header=header, footer=footer)
 
-            # 5 aprslib
+            # 5 aprslib @
             elif re.match(r"^@.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Complete Weather Format
@@ -599,7 +613,7 @@ def decode_APRS_Messages(msgs):
                         fld = parse_Fields(fields)
                         insert_Message(fld, header=header, footer=footer)
 
-            # 6 aprslib
+            # 6 aprslib /
             elif re.match(r"^/.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Complete Weather Report Format — with Compressed Lat/Long position, with Timestamp
@@ -636,7 +650,7 @@ def decode_APRS_Messages(msgs):
                     except Exception, msg:
                         logger.error(u"6 Trying alternate parsing : %s" % msg)
 
-            # 7 aprslib
+            # 7 aprslib ;
             elif re.match(r"^;.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # ;145.650  *051916z2749.31N/08244.16Wr/A=000025AA/Cert-Node 273835
@@ -673,7 +687,7 @@ def decode_APRS_Messages(msgs):
                         fld = parse_Fields(fields)
                         insert_Message(fld, header=header, footer=footer)
 
-            # 8 aprslib
+            # 8 aprslib >
             elif re.match(r"^>.*", footer, re.M | re.I):
                 #
                 # >- aprsfl.net/weather - New Port Richey WX
@@ -686,7 +700,7 @@ def decode_APRS_Messages(msgs):
                 except Exception, msg:
                     logger.error(u"8 %s" % msg)
 
-            # 9 aprslib
+            # 9 aprslib :
             elif re.match(r"^:.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # :
@@ -704,7 +718,7 @@ def decode_APRS_Messages(msgs):
                     fld = parse_Fields(fields)
                     insert_Message(fld, header=header, footer=footer)
 
-            # 10 aprslib
+            # 10 aprslib `
             elif re.match(r"^`.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # MicE Format
@@ -726,43 +740,44 @@ def decode_APRS_Messages(msgs):
     return mt
 
 
+def decodeMessages(test=True):
+
+    try:
+        logFl = get_GQRX_LogFiles(test=test)
+
+        for lf in logFl:
+            logger.info(u"Reading : %s" % lf)
+            with open(lf, "rb") as f:
+                messages = f.read()
+
+            msgs = get_APRS_Messages(messages)
+            mt = decode_APRS_Messages(msgs)
+
+            mtt = mt.items()
+            mts = sorted(mtt, key=lambda mn: mn[1], reverse=True)
+
+            mc = len(msgs)
+            pf = float(field_errors) / float(field_count) * 100.0
+            logger.info(u"Message Type Counts :  %4d " % mc)
+            logger.info(u"Field Count         :  %4d " % field_errors)
+            logger.info(u"Field Errors[%d]    : %3.2f%%" % (field_errors, pf))
+
+            output = u"Top Ten : "
+            for key, value in mts[:10]:
+                output += u"%s[%s] " % (key, value)
+
+            logger.info(u"%s" % output)
+
+    except KeyboardInterrupt:
+        logger.info(u"Bye ")
+
+
+def test_decodeMessages():
+    decodeMessages(test=True)
+
 if __name__ == u"__main__":
-    logFile = None
-    opts = None
-    program = u""
 
     program, ifile, ofile = grab_CommandLine_Options(sys.argv)
 
-    # while True:
-    if True:
-        try:
-            logFl = get_GQRX_LogFiles(test=True)
+    decodeMessages(test=False)
 
-            for lf in logFl:
-                logger.info(u"Reading : %s" % lf)
-                with open(lf, "rb") as f:
-                    messages = f.read()
-
-                msgs = get_APRS_Messages(messages)
-                mt = decode_APRS_Messages(msgs)
-
-                mtt = mt.items()
-                mts = sorted(mtt, key=lambda mn: mn[1], reverse=True)
-
-                mc = len(msgs)
-                pf = float(field_errors) / float(field_count) * 100.0
-                logger.info(u"Message Type Counts :  %4d " % mc)
-                logger.info(u"Field Count         :  %4d " % field_errors)
-                logger.info(u"Field Errors[%d]    : %3.2f%%" % (field_errors, pf))
-
-                output = u"Top Ten : "
-                for key, value in mts[:10]:
-                    output += u"%s[%s] " % (key, value)
-
-                logger.info(u"%s" % output)
-
-        except KeyboardInterrupt:
-            logger.info(u"Bye ")
-
-        if False:
-            time.sleep(300)
