@@ -14,21 +14,25 @@ from datetime import date
 from pymongo import *
 
 from Logger import *
-
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
 field_errors = 0
 field_count = 0
 client = MongoClient(u'mongodb://localhost:27017/')
+database = u"local"
+collection = u"Weather"
 CLEAR_DB = False # True
+SLEEP_TIME = 60 # 5 minutes times 60 seconds
 
 def insert_Message(message, header=None, footer=None, hash=False):
     global client
     global CLEAR_DB
+    global database
+    global collection
 
-    db = client[u"local"]
-    c = db[u'Weather']
+    db = client[database]
+    c = db[collection]
 
     if CLEAR_DB is True:
         logger.info(u"Reset MongoDB")
@@ -40,16 +44,17 @@ def insert_Message(message, header=None, footer=None, hash=False):
 
     try:
         if header is not None and footer is not None:
-            msg = dict()
-            msg[u"Header"] = header
-            msg[u"Footer"] = footer
+
+            message[u"Header"] = header
+            message[u"Footer"] = footer
+            message[u"ReadingDateTime"] = u"%s" % datetime.now()
 
             if hash is True:
+                msg = dict()
                 hs = header + footer
                 ho = hashlib.sha512(hs)
-                msg[u"Hash"] = u"%s" % ho.digest().decode(u"utf8", errors=u"replace")
-
-            message.update(msg)
+                message[u"Hash"] = u"%s" % ho.digest().decode(u"utf8", errors=u"replace")
+                message.update(msg)
 
     except Exception, msg:
         logger.warn(u"%s" % msg)
@@ -398,7 +403,7 @@ def get_APRS_Messages(messages):
     return aprs_messages
 
 
-def get_GQRX_LogFiles(test=True):
+def get_GQRX_LogFiles(test=False):
     logs = list()
     path = os.environ[u"HOME"] + os.sep + u"logs"
 
@@ -522,22 +527,27 @@ def decode_APRS_Messages(msgs):
                 # b1016 Barometric Pressure
                 # 5     APRS Software
                 # wDAV  WX Unit -  WinAPRS
-
                 try:
-                    # MDHM
-                    logger.info(u"3b Positionless Weather Report")
-                    message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
-                    fields = parse_APRS_Message(footer, message_bytes)
-                    fld = parse_Fields(fields)
-                    insert_Message(fld, header=header, footer=footer)
+                    logger.info(u"3a Raw Weather Report")
+                    fields = aprslib.parse(aprs_addresses)
+                    log_APRS_LIB_Message(fields)
+                    insert_Message(fields)
 
                 except Exception, msg:
-                    logger.warn(u"3 %s" % msg)
-                    logger.info(u"3a Positionless Weather Report")
-                    message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 5, 1, 4, 0)
-                    fields = parse_APRS_Message(footer, message_bytes)
-                    fld = parse_Fields(fields)
-                    insert_Message(fld, header=header, footer=footer)
+                    try:
+                        # MDHM
+                        logger.info(u"3b Positionless Weather Report")
+                        message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
+                        fields = parse_APRS_Message(footer, message_bytes)
+                        fld = parse_Fields(fields)
+                        insert_Message(fld, header=header, footer=footer)
+
+                    except Exception, msg:
+                        logger.info(u"3c Positionless Weather Report")
+                        message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 5, 1, 4, 0)
+                        fields = parse_APRS_Message(footer, message_bytes)
+                        fld = parse_Fields(fields)
+                        insert_Message(fld, header=header, footer=footer)
 
             # 4 aprslib =
             elif re.match(r"^=.*", footer, re.M | re.I):
@@ -597,7 +607,6 @@ def decode_APRS_Messages(msgs):
                     insert_Message(fields)
 
                 except Exception, msg:
-                    logger.warn(u"5b %s" % msg)
                     try:
                         logger.info(u"5b Complete Weather Format")
                         message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
@@ -606,7 +615,6 @@ def decode_APRS_Messages(msgs):
                         insert_Message(fld, header=header, footer=footer)
 
                     except Exception, msg:
-                        logger.warn(u"5c %s" % msg)
                         logger.info(u"5c Complete Weather Format")
                         message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                         fields = parse_APRS_Message(footer, message_bytes)
@@ -772,6 +780,37 @@ def decodeMessages(test=True):
         logger.info(u"Bye ")
 
 
+def loopDecodeMessages(test=True):
+    eofl = dict()
+
+    logFl = get_GQRX_LogFiles(test=test)
+
+    while True:
+        try:
+            for n, lf in enumerate(logFl):
+
+                if lf not in eofl.keys():
+                    f = open(lf, "rb")
+                    messages = f.read()
+                    eofl[lf] = (f.tell(), f, lf)
+                    logger.info(u"%d : %s" % (f.tell(), lf))
+                else:
+                    eofm = eofl[lf][0]
+                    f = eofl[lf][1]
+                    f.seek(eofm)
+                    messages = f.read()
+                    eofl[lf] = (f.tell(), f, lf)
+                    logger.info(u"%d : %s" % (f.tell(), lf))
+
+                msgs = get_APRS_Messages(messages)
+                decode_APRS_Messages(msgs)
+
+            time.sleep(SLEEP_TIME)
+
+        except KeyboardInterrupt:
+            logger.info(u"Bye ")
+
+
 def test_decodeMessages():
     decodeMessages(test=True)
 
@@ -779,5 +818,7 @@ if __name__ == u"__main__":
 
     program, ifile, ofile = grab_CommandLine_Options(sys.argv)
 
-    decodeMessages(test=False)
-
+    if False:
+        decodeMessages(test=False)
+    else:
+        loopDecodeMessages(test=False)
