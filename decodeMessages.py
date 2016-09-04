@@ -26,7 +26,6 @@ CLEAR_DB = False # True
 SLEEP_TIME = 10 # 5 minutes times 60 seconds
 
 
-
 def insert_Message(message, header=None, footer=None, hash=False):
     global client
     global CLEAR_DB
@@ -196,17 +195,17 @@ def parse_Fields(fields):
                     n = 4
                     if len(field[1:]) > 2:
                         fv = int(field[1:]) * 0.01
-                        logger.debug(u"%6.1f : [ Rainfall in the last hour ]" % fv)
+                        logger.info(u"%6.1f : [ Rainfall in the last hour ]" % fv)
                         fld[u"Rainfall in the last hour"] = fv
                 elif field[0] == u"P":
                     n = 5
                     fv = int(field[1:]) * 0.01
-                    logger.debug(u"%6.1f : [ Rainfall in the last 24 hour]" % fv)
+                    logger.info(u"%6.1f : [ Rainfall in the last 24 hour]" % fv)
                     fld[u"Rainfall in the last 24 hour"] = fv
                 elif field[0] == u"p":
                     n = 6
                     fv = int(field[1:]) * 0.01
-                    logger.debug(u"%6.1f : [ Rainfall since midnight ]" % fv)
+                    logger.info(u"%6.1f : [ Rainfall since midnight ]" % fv)
                     fld[u"Rainfall since midnight"] = fv
 
                 elif field[0] == u"b":
@@ -224,12 +223,12 @@ def parse_Fields(fields):
                 elif field[0] == u"s":
                     n = 9
                     fv = int(field[1:])
-                    logger.debug(u"%6d : [ Sustained Wind Speed ]" % fv)
+                    logger.info(u"%6d : [ Sustained Wind Speed ]" % fv)
                     fld[u"Sustained wind speed"] = fv
                 elif field[0] == u"g":
                     n = 10
                     fv = int(field[1:])
-                    logger.debug(u"%6d : [ Wind Gust]" % fv)
+                    logger.info(u"%6d : [ Wind Gust]" % fv)
                     fld[u"Wind Gust"] = fv
 
                 elif field[-1:] in (u"N", u"S"): #  and len(field) > 2:
