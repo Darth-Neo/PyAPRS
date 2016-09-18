@@ -1,6 +1,7 @@
 # Byte-compiled / optimized / DLL files
 rmq/logs/log.txt
 rmq/*.conf
+rmq/rmq_settings.conf
 __pycache__/
 *.py[cod]
 *$py.class
