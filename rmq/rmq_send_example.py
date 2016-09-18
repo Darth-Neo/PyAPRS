@@ -18,8 +18,10 @@ if __name__ == u"__main__":
     queue = ConfigSectionMap(u"Send", Config)[u'queue']
     routing_key = ConfigSectionMap(u"Send", Config)[u'routing_key']
     exchange = ConfigSectionMap(u"Send", Config)[u'exchange']
+
     host = ConfigSectionMap(u"Send", Config)[u'host']
     port = int(ConfigSectionMap(u"Send", Config)[u'port'])
+
     username = ConfigSectionMap(u"Send", Config)[u'username']
     password = ConfigSectionMap(u"Send", Config)[u'password']
 

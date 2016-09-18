@@ -18,8 +18,9 @@ def setupLogging(name):
     #
     # Logging setup
     #
+    logFile = u'./logs/decodeMessages.log'
+    ensure_dir(logFile)
     logger = logging.getLogger(name)
-    logFile = u'../logs/log.txt'
 
     # Note: Levels - DEBUG INFO WARN ERROR CRITICAL
     logger.setLevel(logging.INFO)
