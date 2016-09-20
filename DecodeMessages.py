@@ -709,13 +709,13 @@ def decode_aprs_messages(msgs):
                 # Comment                               5AA/Cert-Node 273835
 
                 try:
-                    logger.info(u"7 Object Report Format")
+                    logger.info(u"7a Object Report Format")
                     fields = aprslib.parse(aprs_addresses)
                     log_aprs_lib_message(fields)
                     insert_Message(fields, header=header, footer=footer)
 
                 except Exception, msg:
-                    logger.info(u"7 Object Report Format")
+                    logger.info(u"7b Object Report Format")
 
                     try:
                         message_bytes = (1, 9, 1, 7, 8, 1, 9, 1, 7, 0)
@@ -724,7 +724,7 @@ def decode_aprs_messages(msgs):
                         insert_Message(fields, header=header, footer=footer)
 
                     except Exception, msg: #else:
-                        logger.info(u"7 %s" % msg)
+                        logger.info(u"7c %s" % msg)
                         message_bytes = (1, 9, 1, 7, 13, 43)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
