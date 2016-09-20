@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from bson.code import Code
 from pymongo import MongoClient
 
 from Logger import *
@@ -18,41 +19,41 @@ def addStation(d, s):
     except Exception, msg:
         logger.error(u"Error : %s" % msg)
 
-def getTo(stations):
+def printResults(sl):
+    for doc in sl:
+        for k, v in doc.items():
+            print(u"{0} : {1}".format(k, v))
+
+def getTo():
+    name = __name__
     global collection
-    response = collection.find({u"To": {u"$exists": u"True"}})
+    reducer = Code(u"""function(obj, prev){  prev.count++;} """)
 
-    for x in response:
-        addStation(stations, x[u'To'])
-
-    l = stations.items()
-    sl = sorted(l, key=lambda l: l[1], reverse=True)
-
+    results = collection.group(key={u"To": 1}, condition={}, initial={u"count": 0}, reduce=reducer, finalize=None)
+    sl = sorted(results, key=lambda result: result[u"count"], reverse=True)
+    logger.info(u"{0} - {1} records".format(name, len(sl)))
     return sl
 
-def getFrom(stations):
+def getFrom():
+    name = __name__
     global collection
-    response = collection.find({u"From": {u"$exists": u"True"}})
 
-    for x in response:
-        addStation(stations, x[u'From'])
+    reducer = Code(u"""function(obj, prev){  prev.count++;} """)
 
-    l = stations.items()
-    sl = sorted(l, key=lambda l: l[1], reverse=True)
-
+    results = collection.group(key={u"From": 1}, condition={}, initial={u"count": 0}, reduce=reducer, finalize=None)
+    sl = sorted(results, key=lambda result: result[u"count"], reverse=True)
+    logger.info(u"{0} - {1} records".format(name, len(sl)))
     return sl
 
-def getPath(stations):
+def getPath():
+    name = __name__
     global collection
-    response = collection.find({u"path": {u"$exists": u"True"}})
 
-    for x in response:
-        for y in x[u'path']:
-            addStation(stations, y)
+    reducer = Code(u"""function(obj, prev){  prev.count++;} """)
 
-    l = stations.items()
-    sl = sorted(l, key=lambda l: l[1], reverse=True)
-
+    results = collection.group(key={u"Path": 1}, condition={}, initial={u"count": 0}, reduce=reducer, finalize=None)
+    sl = sorted(results, key=lambda result: result[u"count"], reverse=True)
+    logger.info(u"{0} - {1} records".format(name, len(sl)))
     return sl
 
 def test_stations(sl, name):
@@ -61,22 +62,21 @@ def test_stations(sl, name):
         logger.debug(u"{0!r} : {1!r}".format(n[0], n[1]))
 
 def test_report():
-    stations = dict()
 
     logger.debug(u"Check To")
-    slTo = getTo(stations)
-    test_stations(slTo, u"To")
+    slTo = getTo()
     assert len(slTo) > 1
+    printResults(slTo)
 
     logger.debug(u"Check From")
-    slFrom = getFrom(stations)
-    test_stations(slFrom, u"From")
+    slFrom = getFrom()
     assert len(slFrom) > 1
+    printResults(slFrom)
 
     logger.debug(u"Check path")
-    slPath = getPath(stations)
-    test_stations(slPath, u"PATH")
+    slPath = getPath()
     assert len(slPath) > 1
+    printResults(slPath)
 
 if __name__ == u"__main__":
     test_report()
