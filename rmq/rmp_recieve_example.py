@@ -6,39 +6,66 @@ from Logger import *
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
-if __name__ == u"__main__":
-    configFile = u"rmq_settings.conf"
-    Config = ConfigParser()
-    Config.read(configFile)
+class RabbitRecieve(object):
+    def __init__(self, configFile=None):
 
-    vhost = ConfigSectionMap(u"Receive", Config)[u'vhost']
-    queue = ConfigSectionMap(u"Receive", Config)[u'queue']
-    routing_key = ConfigSectionMap(u"Receive", Config)[u'routing_key']
-    exchange = ConfigSectionMap(u"Receive", Config)[u'exchange']
-    host = ConfigSectionMap(u"Receive", Config)[u'host']
-    port = int(ConfigSectionMap(u"Receive", Config)[u'port'])
-    username = ConfigSectionMap(u"Receive", Config)[u'username']
-    password = ConfigSectionMap(u"Receive", Config)[u'password']
+        if configFile is None: configFile = u"rmq_settings.conf"
+        Config = ConfigParser()
+        Config.read(configFile)
 
-    logger.info(u"Host : %s" % host)
+        self.vhost =       ConfigSectionMap(u"Receive", Config)[u'vhost']
+        self.queue =       ConfigSectionMap(u"Receive", Config)[u'queue']
+        self.routing_key = ConfigSectionMap(u"Receive", Config)[u'routing_key']
+        self.exchange =    ConfigSectionMap(u"Receive", Config)[u'exchange']
 
-    credentials = pika.PlainCredentials(username, password)
+        self.host =        ConfigSectionMap(u"Receive", Config)[u'host']
+        self.port =    int(ConfigSectionMap(u"Receive", Config)[u'port'])
 
-    connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host=host, port=port, virtual_host=vhost, credentials=credentials))
+        username =    ConfigSectionMap(u"Receive", Config)[u'username']
+        password =    ConfigSectionMap(u"Receive", Config)[u'password']
+        self.credentials = pika.PlainCredentials(username, password)
 
-    channel = connection.channel()
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+            host=self.host, port=self.port, virtual_host=self.vhost, credentials=self.credentials))
 
-    def callback(ch, method, properties, body):
+        self.channel = self.connection.channel()
+
+    def __del__(self):
+        pass
+
+    def __repr__(self):
+        """
+        Represent the info about the instance.
+        :rtype: str
+        """
+        value = u"<%s host=%s port=%s virtual_host=%s>" % (self.__class__.__name__, self.host, self.port, self.vhost)
+        return value
+
+    @staticmethod
+    def recieve_callback(ch, method, properties, body):
         logger.info(u"Received %r" % body)
 
+    def recieve_messages(self):
+        self.channel.basic_consume(RabbitRecieve.recieve_callback, queue=self.queue, no_ack=True)
 
-    channel.basic_consume(callback, queue=queue, no_ack=True)
+        logger.info(u" [*] Waiting for messages. To exit press CTRL+C")
 
-    logger.info(u" [*] Waiting for messages. To exit press CTRL+C")
+        try:
+            self.channel.start_consuming()
+
+        except KeyboardInterrupt, msg:
+            logger.info(u"Bye")
+
+
+def test_recieve_message():
+
+    rbr = RabbitRecieve()
 
     try:
-        channel.start_consuming()
+        rbr.recieve_messages()
 
     except KeyboardInterrupt, msg:
         logger.info(u"Bye")
+
+if __name__ == u"__main__":
+    test_recieve_message()

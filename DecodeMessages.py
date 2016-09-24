@@ -55,6 +55,24 @@ def get_CommandLine_Options(av):
 
     return program, inputfile, outputfile
 
+def get_gqrx_log_files(test=False):
+    logs = list()
+    path = os.environ[u"HOME"] + os.sep + u"logs"
+
+    if test is True:
+        rFile = u"test" + os.sep + u"test_messages.txt"
+        logs.append(rFile)
+
+    else:
+        for root, dirs, files in os.walk(path, topdown=False):
+            for name in files:
+                rFile = os.path.join(root, name)
+                logger.debug(u"%s" % rFile)
+
+                if re.match(r"^gqrx-[0-9]+-[0-9]+-[0-9]+-[0-9]+-[0-9]+.log", name, re.M | re.I):
+                    logs.append(rFile)
+
+    return logs
 
 def get_aprs_messages(messages):
     aprs_messages = list()
@@ -80,27 +98,6 @@ def get_aprs_messages(messages):
             begin_message = False
 
     return aprs_messages
-
-
-def get_gqrx_log_files(test=False):
-    logs = list()
-    path = os.environ[u"HOME"] + os.sep + u"logs"
-
-    if test is True:
-        rFile = u"test" + os.sep + u"test_messages.txt"
-        logs.append(rFile)
-
-    else:
-        for root, dirs, files in os.walk(path, topdown=False):
-            for name in files:
-                rFile = os.path.join(root, name)
-                logger.debug(u"%s" % rFile)
-
-                if re.match(r"^gqrx-[0-9]+-[0-9]+-[0-9]+-[0-9]+-[0-9]+.log", name, re.M | re.I):
-                    logs.append(rFile)
-
-    return logs
-
 
 def insert_Message(message, header=None, footer=None, hash=False):
     global client
