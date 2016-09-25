@@ -7,7 +7,6 @@ import time
 import re
 import aprslib
 import hashlib
-import time
 from datetime import datetime, timedelta
 from subprocess import *
 from dateutil import tz
@@ -115,9 +114,9 @@ def display_Message(message):
     global rbs
 
     if u"to" in message:
-        rbs.send_message(u"From: {0}\nT0: {1}".format(message[u"From"], message[u"To"]))
+        rbs.send_message(u"From: {0}\nTo:   {1}".format(message[u"From"], message[u"To"]))
     elif u"To" in message:
-        rbs.send_message(u"From: {0}\nTo: :{1}".format(message[u"From"], message[u"To"]))
+        rbs.send_message(u"From: {0}\nTo:   {1}".format(message[u"From"], message[u"To"]))
 
     gm = [u"Temperature", u"Humidity", u"Barometer", ]
     for k, v in message.items():
