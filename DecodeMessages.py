@@ -9,8 +9,11 @@ import aprslib
 import hashlib
 import time
 from datetime import datetime, timedelta
+from subprocess import *
 from dateutil import tz
-from datetime import date
+from datetime import date, datetime
+from rmq.rmq_send import *
+
 from pymongo import *
 
 from Logger import *
@@ -25,6 +28,15 @@ collection = u"Weather"
 CLEAR_DB = True # True
 SLEEP_TIME = 10 # 5 minutes times 60 seconds
 
+configFile=u"." + os.sep + u"rmq" + os.sep + u"rmq_settings.conf"
+logger.info(u"%s" % configFile)
+rbs = RabbitSend(configFile=configFile)
+CLEAR_MESSAGES = True
+
+def run_cmd(cmd):
+    p = Popen(cmd, shell=True, stdout=PIPE)
+    output = p.communicate()[0]
+    return output
 
 def get_CommandLine_Options(av):
     program = u""
@@ -99,11 +111,32 @@ def get_aprs_messages(messages):
 
     return aprs_messages
 
+def display_Message(message):
+    global rbs
+
+    if u"to" in message:
+        rbs.send_message(u"From: {0}\nT0: {1}".format(message[u"From"], message[u"To"]))
+    elif u"To" in message:
+        rbs.send_message(u"From: {0}\nTo: :{1}".format(message[u"From"], message[u"To"]))
+
+    gm = [u"Temperature", u"Humidity", u"Barometer", ]
+    for k, v in message.items():
+        logger.info(u"{0} : {1}".format(k, v))
+        if k in gm:
+            if v is not None:
+                logger.info(u"*** Match : {0} ***".format(v))
+                rbs.send_message(u"{0}\n{1}".format(k, v))
+
+    dtt = datetime.now().strftime(u"%b %d %Y\n%I:%M %p")
+    rbs.send_message(dtt)
+
 def insert_Message(message, header=None, footer=None, hash=False):
     global client
     global CLEAR_DB
     global database
     global collection
+
+    display_Message(message)
 
     db = client[database]
     c = db[collection]
@@ -255,7 +288,7 @@ def parse_aprs_fields(fields):
                     n = 7
                     fv = float(field[1:]) * 0.1
                     logger.info(u"%6.1f : [ Barometric Pressure] " % fv)
-                    fld[u"Barometric Pressure"] = fv
+                    # fld[u"Barometric Pressure"] = fv
                     fld[u"Barometer"] = fv
 
                 elif field[0] == u"c":
@@ -321,12 +354,12 @@ def parse_aprs_fields(fields):
             n = 20
             m = u"Wind Speed Peak over last 5 min (0_1 kph increments)"
             msg = u"Wind Speed PeaK"
-            #fld[msg] = parse_ULTW_Message(fields[1], msg, scale=0.1)
+            fld[msg] = parse_ULTW_Message(fields[1], msg, scale=0.1)
 
             n = 21
             m = u"Wind Direction of Wind Speed Peak (0-255)"
             msg = u"Wind Direction"
-            #fld[msg] = parse_ULTW_Message(fields[2], msg)
+            fld[msg] = parse_ULTW_Message(fields[2], msg)
 
             n = 22
             m = u"Current Outdoor Temp (0_1 deg F increments)"
@@ -340,7 +373,7 @@ def parse_aprs_fields(fields):
             n = 24
             m = u"Current Barometer (0_1 mbar increments)"
             msg = u"Barometer"
-            #fld[msg] = parse_ULTW_Message(fields[5], msg, scale=0.1)
+            fld[msg] = parse_ULTW_Message(fields[5], msg, scale=0.1)
 
             n = 25
             # m = u"Barometer Delta Value(0_1 mbar increments)"
@@ -849,6 +882,8 @@ def test_decodeMessages():
 if __name__ == u"__main__":
 
     program, ifile, ofile = get_CommandLine_Options(sys.argv)
+
+
 
     if False:
         decodeMessages(test=False)
