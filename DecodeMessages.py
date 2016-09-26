@@ -113,23 +113,28 @@ def get_aprs_messages(messages):
 def display_Message(message):
     global rbs
 
-    if u"to" in message:
-        rbs.send_message(u"From: {0}\nTo:   {1}".format(message[u"From"], message[u"To"]))
-    elif u"To" in message:
-        rbs.send_message(u"From: {0}\nTo:   {1}".format(message[u"From"], message[u"To"]))
+    try:
+        if message is None:
+            return
+        elif u"to" in message:
+            rbs.send_message(u"From: {0}\n  To: {1}".format(message[u"From"], message[u"To"]))
+        elif u"To" in message:
+            rbs.send_message(u"From: {0}\n  To: {1}".format(message[u"From"], message[u"To"]))
 
-    gm = [u"Temperature", u"Humidity", u"Barometer", ]
-    for k, v in message.items():
-        logger.info(u"{0} : {1}".format(k, v))
-        if k in gm:
-            if v is not None:
-                logger.info(u"*** Match : {0} ***".format(v))
-                rbs.send_message(u"{0}\n{1}".format(k, v))
+        gm = [u"Temperature", u"Humidity", u"Barometer", ]
+        for k, v in message.items():
+            logger.info(u"{0} : {1}".format(k, v))
+            if k in gm:
+                if v is not None:
+                    logger.info(u"*** Match : {0} ***".format(v))
+                    rbs.send_message(u"{0}\n{1}".format(k, v))
 
-    dtt = datetime.now().strftime(u"%b %d %Y\n%I:%M %p")
-    rbs.send_message(dtt)
+        dtt = datetime.now().strftime(u"%b %d %Y\n%I:%M %p")
+        rbs.send_message(dtt)
+    except Exception, msg:
+        logger.warn(u"%s" % msg)
 
-def insert_Message(message, header=None, footer=None, hash=False):
+def queue_Message(message, header=None, footer=None, hash=False):
     global client
     global CLEAR_DB
     global database
@@ -167,7 +172,6 @@ def insert_Message(message, header=None, footer=None, hash=False):
 
     c.insert_one(message)
 
-
 def log_aprs_lib_message(result):
     """
     Logs eMic messages that have special decoding needs
@@ -189,7 +193,6 @@ def log_aprs_lib_message(result):
         except Exception, msg:
             logger.error(u"%s" % msg)
 
-
 def parse_ULTW_Message(field, msg, scale=1.0):
     u"""
     function to convert hex to the proper value
@@ -208,7 +211,6 @@ def parse_ULTW_Message(field, msg, scale=1.0):
         logger.warn(u"%s : %s" % (msg, field))
 
     return fld
-
 
 def parse_Zulu_EDT(pt):
 
@@ -229,14 +231,12 @@ def parse_Zulu_EDT(pt):
 
     return zulu
 
-
 def parse_Days(days):
     year = int(datetime.now().strftime(u'%Y'))
     n = datetime(day=1, month=1, year=year)
     EndDate = n + timedelta(days=days)
 
     return EndDate.strftime(u'%Y/%m/%d')
-
 
 def parse_aprs_fields(fields):
     """
@@ -426,7 +426,6 @@ def parse_aprs_fields(fields):
         logger.debug(u"Unknown")
         return None
 
-
 def parse_aprs_header(header, footer, n=0):
     header_fields = None
     aprs_addresses = None
@@ -455,7 +454,6 @@ def parse_aprs_header(header, footer, n=0):
         logger.error(u"%s" % msg)
 
     return header_fields, aprs_addresses
-
 
 def parse_aprs_footer(footer, msg_bytes):
     n = y = x = 0
@@ -486,7 +484,6 @@ def parse_aprs_footer(footer, msg_bytes):
     fields = parse_aprs_fields(fields)
 
     return fields
-
 
 def decode_aprs_messages(msgs):
 
@@ -543,7 +540,7 @@ def decode_aprs_messages(msgs):
                     message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
                     fields.update(header_fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
                 except Exception, msg:
                     logger.warn(u"1 %s" % msg)
 
@@ -562,7 +559,7 @@ def decode_aprs_messages(msgs):
                     logger.info(u"2a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
                     log_aprs_lib_message(fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.debug(u"2 %s" % msg)
@@ -570,7 +567,7 @@ def decode_aprs_messages(msgs):
                     message_bytes = (1, 8, 1, 9, 1, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
                     fields.update(header_fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
 
             # 3 _
             elif re.match(r"^_.*", footer, re.M | re.I):
@@ -595,7 +592,7 @@ def decode_aprs_messages(msgs):
                     logger.info(u"3a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
                     log_aprs_lib_message(fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     try:
@@ -604,14 +601,14 @@ def decode_aprs_messages(msgs):
                         message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        insert_Message(fields, header=header, footer=footer)
+                        queue_Message(fields, header=header, footer=footer)
 
                     except Exception, msg:
                         logger.debug(u"3c Positionless Weather Report")
                         message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 5, 1, 4, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        insert_Message(fields, header=header, footer=footer)
+                        queue_Message(fields, header=header, footer=footer)
 
             # 4 aprslib =
             elif re.match(r"^=.*", footer, re.M | re.I):
@@ -628,7 +625,7 @@ def decode_aprs_messages(msgs):
                     logger.info(u"4 Complete Weather Report")
                     fields = aprslib.parse(aprs_addresses)
                     log_aprs_lib_message(fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.warn(u"4 %s" % msg)
@@ -637,7 +634,7 @@ def decode_aprs_messages(msgs):
                         message_bytes = (1, 8, 1, 9, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        insert_Message(fields, header=header, footer=footer)
+                        queue_Message(fields, header=header, footer=footer)
 
                     except Exception, msg:
                         logger.warn(u"4 %s" % msg)
@@ -645,7 +642,7 @@ def decode_aprs_messages(msgs):
                         message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        insert_Message(fields, header=header, footer=footer)
+                        queue_Message(fields, header=header, footer=footer)
 
             # 5 aprslib @
             elif re.match(r"^@.*", footer, re.M | re.I):
@@ -668,7 +665,7 @@ def decode_aprs_messages(msgs):
                     logger.info(u"5 Complete Weather Format")
                     fields = aprslib.parse(aprs_addresses)
                     log_aprs_lib_message(fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     try:
@@ -676,14 +673,14 @@ def decode_aprs_messages(msgs):
                         message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        insert_Message(fields, header=header, footer=footer)
+                        queue_Message(fields, header=header, footer=footer)
 
                     except Exception, msg:
                         logger.debug(u"5c Complete Weather Format")
                         message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        insert_Message(fields, header=header, footer=footer)
+                        queue_Message(fields, header=header, footer=footer)
 
             # 6 aprslib /
             elif re.match(r"^/.*", footer, re.M | re.I):
@@ -708,7 +705,7 @@ def decode_aprs_messages(msgs):
                     logger.info(u"6 Complete Weather Report Format ")
                     fields = aprslib.parse(aprs_addresses)
                     log_aprs_lib_message(fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.debug(u"5 %s" % msg)
@@ -717,7 +714,7 @@ def decode_aprs_messages(msgs):
                         message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 1, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        insert_Message(fields, header=header, footer=footer)
+                        queue_Message(fields, header=header, footer=footer)
 
                     except Exception, msg:
                         logger.debug(u"6 Trying alternate parsing : %s" % msg)
@@ -741,7 +738,7 @@ def decode_aprs_messages(msgs):
                     logger.info(u"7a Object Report Format")
                     fields = aprslib.parse(aprs_addresses)
                     log_aprs_lib_message(fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.info(u"7b Object Report Format")
@@ -750,14 +747,14 @@ def decode_aprs_messages(msgs):
                         message_bytes = (1, 9, 1, 7, 8, 1, 9, 1, 7, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        insert_Message(fields, header=header, footer=footer)
+                        queue_Message(fields, header=header, footer=footer)
 
                     except Exception, msg: #else:
                         logger.info(u"7c %s" % msg)
                         message_bytes = (1, 9, 1, 7, 13, 43)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        insert_Message(fields, header=header, footer=footer)
+                        queue_Message(fields, header=header, footer=footer)
 
             # 8 aprslib >
             elif re.match(r"^>.*", footer, re.M | re.I):
@@ -767,7 +764,7 @@ def decode_aprs_messages(msgs):
                     logger.debug(u"8 Unknown")
                     fields = aprslib.parse(aprs_addresses)
                     log_aprs_lib_message(fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.error(u"8 %s" % msg)
@@ -781,13 +778,13 @@ def decode_aprs_messages(msgs):
                 try:
                     fields = aprslib.parse(aprs_addresses)
                     log_aprs_lib_message(fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
                 except Exception, msg:
                     logger.warn(u"9 %s" % msg)
                     message_bytes = (1, 9, 1, 67, 1, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
                     fields.update(header_fields)
-                    insert_Message(fields, header=header, footer=footer)
+                    queue_Message(fields, header=header, footer=footer)
 
             # 10 aprslib `
             elif re.match(r"^`.*", footer, re.M | re.I):
@@ -797,7 +794,7 @@ def decode_aprs_messages(msgs):
                 logger.debug(u"10 eMic Format")
                 fields = aprslib.parse(aprs_addresses)
                 log_aprs_lib_message(fields)
-                insert_Message(fields, header=header, footer=footer)
+                queue_Message(fields, header=header, footer=footer)
 
             else:
                 # __________________________________________________________________________________
@@ -805,12 +802,11 @@ def decode_aprs_messages(msgs):
 
 
         except Exception, msg:
-            logger.error(u"decodeMesssage : %s" % msg)
+            logger.error(u"decode_aprs_messages : %s" % msg)
             field_errors += 1
             continue
 
     return mt
-
 
 def decodeMessages(test=True):
 
@@ -843,7 +839,6 @@ def decodeMessages(test=True):
     except KeyboardInterrupt:
         logger.info(u"Bye ")
 
-
 def loopDecodeMessages(test=True):
     eofl = dict()
 
@@ -874,15 +869,12 @@ def loopDecodeMessages(test=True):
         except KeyboardInterrupt:
             logger.info(u"Bye ")
 
-
 def test_decodeMessages():
     decodeMessages(test=True)
 
 if __name__ == u"__main__":
 
     program, ifile, ofile = get_CommandLine_Options(sys.argv)
-
-
 
     if False:
         decodeMessages(test=False)
