@@ -12,8 +12,9 @@ from subprocess import *
 from dateutil import tz
 from datetime import date, datetime
 from rmq.rmq_send import *
-
 from pymongo import *
+
+from aprs_table_and_symbols import *
 
 from Logger import *
 logger = setupLogging(__name__)
@@ -31,6 +32,7 @@ configFile=u"." + os.sep + u"rmq" + os.sep + u"rmq_settings.conf"
 logger.info(u"%s" % configFile)
 rbs = RabbitSend(configFile=configFile)
 CLEAR_MESSAGES = True
+
 
 def run_cmd(cmd):
     p = Popen(cmd, shell=True, stdout=PIPE)
@@ -110,24 +112,67 @@ def get_aprs_messages(messages):
 
     return aprs_messages
 
-def display_Message(message):
+def decode_symbol(sym):
+    s = sym.title()
+
+    return symbols[s]
+
+def display_Message(message, gm=None, ALL_FIELDS=False):
     global rbs
+    fm = to = mt = None
 
     try:
         if message is None:
             return
         elif u"to" in message:
-            rbs.send_message(u"From: {0}\n  To: {1}".format(message[u"From"], message[u"To"]))
-        elif u"To" in message:
-            rbs.send_message(u"From: {0}\n  To: {1}".format(message[u"From"], message[u"To"]))
+            to = message.pop(u"to", None)
+            fm = message.pop(u"from", None)
 
-        gm = [u"Temperature", u"Humidity", u"Barometer", ]
+        elif u"To" in message:
+            to = message.pop(u"To", None)
+            fm = message.pop(u"From", None)
+
+        if u"Message_Type" in message:
+            mt = message.pop(u"Message_Type", None)
+            rbs.send_message(u"From: {}\n{} To: {}".format(fm, mt[0], to))
+        else:
+            rbs.send_message(u"From: {}\n  To: {}".format(fm, to))
+
+        # Preferred fields
+        if gm is None:
+            gm = [u"Temperature", u"Humidity", u"Barometer", u"Barometric Pressure",
+                  # u"Time", u"ReadingDateTime", u"Zulu Time",
+                  # u"symbol", u"symbol_table", u"Alternate Symbol Table",
+                  # u"longitude", u"latitude", u"Longitude", u"Latitude",
+                  u"object_name",
+                  # u"Rainfall since midnight", u"Rainfall in the last hour", u"Rainfall in the last 24 hour",
+                  # u"Course/Speed", u"altitude", u"course", u"speed",
+                  # u"Wind Gust", u"Wind Speed PeaK", u"Wind Direction",
+                  # u"wx_raw_timestamp",
+                  u"Message_Type",
+                  # u"comment"
+                ]
+
         for k, v in message.items():
             logger.info(u"{0} : {1}".format(k, v))
-            if k in gm:
+            if ALL_FIELDS or k in gm:
                 if v is not None:
-                    logger.info(u"*** Match : {0} ***".format(v))
-                    rbs.send_message(u"{0}\n{1}".format(k, v))
+                    logger.debug(u"*** Match : {0} ***".format(v))
+                    if isinstance(v, float):
+                        v = u"%4.2f" % v
+                    elif isinstance(v, int):
+                        v = u"%4d" % v
+
+                    rbs.send_message(u"%s\n%s" % (k.title(), v))
+
+        # Try and decode the symbol based on symbol table
+        if u"symbol" in message and u"symbol_table" in message:
+            symbol_table = message[u'symbol_table']
+            symbol = message[u'symbol']
+            vl = findSymbolName(symbol_table, symbol)
+            output = u"[%s%s] : %s" % (symbol_table, symbol, vl)
+            logger.info(output)
+            rbs.send_message(output)
 
         dtt = datetime.now().strftime(u"%b %d %Y\n%I:%M %p")
         rbs.send_message(dtt)
