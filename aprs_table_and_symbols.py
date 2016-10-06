@@ -258,6 +258,18 @@ symbols[u"V"] = u"Van"
 symbols[u"W"] = u"Water Station"
 symbols[u"X"] = u"X-APRS"
 
+message_types = dict()
+message_types[u"U"] = u"Ultimeter 2000"
+message_types[u"!"] = u"Raw Weather Report"
+message_types[u"_"] = u"Positionless Weather Report"
+message_types[u"="] = u"Complete Weather Report"
+message_types[u"@"] = u"Complete Weather Format"
+message_types[u"/"] = u"Complete Weather - Compressed"
+message_types[u";"] = u"Object Report Format"
+message_types[u">"] = u"Snafu"
+message_types[u":"] = u"Object Report Format"
+message_types[u"`"] = u"MicE Format"
+
 def findSymbolName(symbol_table, symbol):
     vl = None
     try:
