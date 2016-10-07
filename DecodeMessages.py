@@ -117,12 +117,13 @@ def decode_symbol(sym):
 
     return symbols[s]
 
-def display_Message(message, gm=None, ALL_FIELDS=False):
+def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=False):
     """
     Queue Messages and Fields for Display on RPi
     :param message:
     :param gm:
     :param ALL_FIELDS:
+    ;param DISPLAY_MESSAGE_COUNTS;
     :return:
     """
     global rbs
@@ -132,6 +133,7 @@ def display_Message(message, gm=None, ALL_FIELDS=False):
         if message is None:
             return
 
+        # Send To - From fields to Display
         if u"to" in message:
             to = message.pop(u"to", None)
             fm = message.pop(u"from", None)
@@ -174,6 +176,7 @@ def display_Message(message, gm=None, ALL_FIELDS=False):
 
                     rbs.send_message(u"%s\n%s" % (k.title(), v))
 
+        # Send all weather measurements to display
         if u"weather" in message:
             nm = message[u"weather"]
             nm.pop(u"via", None)
@@ -188,9 +191,10 @@ def display_Message(message, gm=None, ALL_FIELDS=False):
                     elif isinstance(v, int):
                         v = u"%4d" % v
 
+                    logger.debug(u"%s -- %s" % (k.title(), v))
                     rbs.send_message(u"%s\n%s" % (k.title(), v))
 
-        # Try and decode the symbol based on symbol table
+        # Decode the symbol based on symbol table
         if u"symbol" in message and u"symbol_table" in message:
             symbol_table = message[u'symbol_table']
             symbol = message[u'symbol']
@@ -199,14 +203,15 @@ def display_Message(message, gm=None, ALL_FIELDS=False):
             logger.info(output)
             rbs.send_message(output)
 
-        # display message counts
+        # Display message counts
         minute = datetime.now().minute
-        if minute in (0, 10, 20, 30, 40, 50):
+        if DISPLAY_MESSAGE_COUNTS is True or minute in (0, 10, 20, 30, 40, 50):
             for k, v in message_counter.items():
                 mt = message_types[k]
                 output = u"{}\n{}".format(mt,v)
                 rbs.send_message(output)
 
+        # Finish by sending the Date and Time
         dtt = datetime.now().strftime(u"%b %d %Y\n%I:%M %p")
         rbs.send_message(dtt)
 
@@ -600,7 +605,6 @@ def decode_aprs_messages(msgs):
             # 1
             if re.match(r"^\$ULTW.*", footer, re.M | re.I):
 
-
                 # # __________________________________________________________________________________
                 # $ indicates a Ultimeter 2000
                 # $ULTW 0000 0000 01FF 0004 27C7 0002 CCD3 0001 026E 003A 050F 0004 0000
@@ -628,35 +632,8 @@ def decode_aprs_messages(msgs):
                 except Exception, msg:
                     logger.warn(u"1 %s" % msg)
 
-            # 2 - aprslib !
-            elif re.match(r"^!.*", footer, re.M | re.I):
-
-                # __________________________________________________________________________________
-                # Raw Weather Report - Ultimeter
-                # !2749.10N S 08215.39W # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
-                # !         Message
-                # 2749.10N  Latitude
-                # S         Symbol Table ID
-                # 08215.39W Longitude
-                # #
-                # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
-                try:
-                    logger.info(u"2a Raw Weather Report")
-                    fields = aprslib.parse(aprs_addresses)
-                    log_aprs_lib_message(fields)
-                    queue_Message(fields, header=header, footer=footer)
-
-                except Exception, msg:
-                    logger.debug(u"2 %s" % msg)
-                    logger.debug(u"2b Raw Weather Report")
-                    message_bytes = (1, 8, 1, 9, 1, 0)
-                    fields = parse_aprs_footer(footer, message_bytes)
-                    fields.update(header_fields)
-                    queue_Message(fields, header=header, footer=footer)
-
-            # 3 _
+            # 2 _
             elif re.match(r"^_.*", footer, re.M | re.I):
-
                 # __________________________________________________________________________________
                 # Positionless Weather Report Positionless Weather Data
                 # _ 0731 1701 c189 s004 g006 t094 r000 p000 P000 h00 b1016 5wDAV
@@ -695,6 +672,32 @@ def decode_aprs_messages(msgs):
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
                         queue_Message(fields, header=header, footer=footer)
+
+            # 3 - aprslib !
+            elif re.match(r"^!.*", footer, re.M | re.I):
+
+                # __________________________________________________________________________________
+                # Raw Weather Report - Ultimeter
+                # !2749.10N S 08215.39W # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
+                # !         Message
+                # 2749.10N  Latitude
+                # S         Symbol Table ID
+                # 08215.39W Longitude
+                # #
+                # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
+                try:
+                    logger.info(u"2a Raw Weather Report")
+                    fields = aprslib.parse(aprs_addresses)
+                    log_aprs_lib_message(fields)
+                    queue_Message(fields, header=header, footer=footer)
+
+                except Exception, msg:
+                    logger.debug(u"2 %s" % msg)
+                    logger.debug(u"2b Raw Weather Report")
+                    message_bytes = (1, 8, 1, 9, 1, 0)
+                    fields = parse_aprs_footer(footer, message_bytes)
+                    fields.update(header_fields)
+                    queue_Message(fields, header=header, footer=footer)
 
             # 4 aprslib =
             elif re.match(r"^=.*", footer, re.M | re.I):
