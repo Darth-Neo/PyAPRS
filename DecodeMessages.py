@@ -25,7 +25,7 @@ field_count = 0
 client = MongoClient(u'mongodb://localhost:27017/')
 database = u"local"
 collection = u"Weather"
-CLEAR_DB = True # True
+CLEAR_DB = False # True
 SLEEP_TIME = 10 # 5 minutes times 60 seconds
 
 configFile=u"." + os.sep + u"rmq" + os.sep + u"rmq_settings.conf"
@@ -962,8 +962,9 @@ def loopDecodeMessages(test=False):
 
             time.sleep(SLEEP_TIME)
 
-        except KeyboardInterrupt:
-            logger.info(u"Bye ")
+        except Exception, msg:
+            logger.info(u"GQRX Closed log file, attempting restart")
+            logFl = get_gqrx_log_files(test=test)
 
 def test_decodeMessages():
     decodeMessages(test=True)

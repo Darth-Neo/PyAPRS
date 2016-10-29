@@ -18,7 +18,7 @@ def setupLogging(name):
     #
     # Logging setup
     #
-    logFile = u'./logs/decodeMessages.log'
+    logFile = u'./logs/aprs.log'
     ensure_dir(logFile)
     logger = logging.getLogger(name)
 

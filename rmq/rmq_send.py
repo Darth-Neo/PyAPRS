@@ -22,7 +22,6 @@ class RabbitSend(object):
         """
 
         if configFile is None: configFile = u"rmq_settings.conf"
-
         Config = ConfigParser()
         Config.read(configFile)
 

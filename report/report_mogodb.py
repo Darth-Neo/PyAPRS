@@ -19,10 +19,13 @@ def addStation(d, s):
     except Exception, msg:
         logger.error(u"Error : %s" % msg)
 
-def printResults(sl):
+def logResults(sl):
     for doc in sl:
+        output = u""
         for k, v in doc.items():
-            print(u"{0} : {1}".format(k, v))
+            # output += u"{0} : {1}\t".format(k, v)
+            output += u"%10s : %12s" % (k, v)
+        logger.info(output)
 
 def getTo():
     name = __name__
@@ -32,7 +35,7 @@ def getTo():
     results = collection.group(key={u"To": 1}, condition={}, initial={u"count": 0}, reduce=reducer, finalize=None)
     sl = sorted(results, key=lambda result: result[u"count"], reverse=True)
     logger.info(u"{0} - {1} records".format(name, len(sl)))
-    return sl
+    return slhelp
 
 def getFrom():
     name = __name__
@@ -63,20 +66,23 @@ def test_stations(sl, name):
 
 def test_report():
 
-    logger.debug(u"Check To")
-    slTo = getTo()
-    assert len(slTo) > 1
-    printResults(slTo)
+    if False:
+        logger.debug(u"Check To")
+        slTo = getTo()
+        assert len(slTo) > 1
+        logResults(slTo)
 
-    logger.debug(u"Check From")
-    slFrom = getFrom()
-    assert len(slFrom) > 1
-    printResults(slFrom)
+    if False:
+        logger.debug(u"Check From")
+        slFrom = getFrom()
+        assert len(slFrom) > 1
+        logResults(slFrom)
 
-    logger.debug(u"Check path")
-    slPath = getPath()
-    assert len(slPath) > 1
-    printResults(slPath)
+    if True:
+        logger.debug(u"Check path")
+        slPath = getPath()
+        assert len(slPath) > 1
+        logResults(slPath)
 
 if __name__ == u"__main__":
     test_report()
