@@ -8,7 +8,8 @@ from Logger import *
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
-output = print
+#output = print
+output = logger.info
 
 EARTH_RADIUS = 6370000.
 MAG_LAT = 82.7
@@ -26,11 +27,9 @@ def xyz(lat, lon, r=EARTH_RADIUS):
     z = r * math.sin(math.radians(lat))
     return x, y, z
 
-
 def dot(p1, p2):
     """ Dot product of two vectors """
     return p1[0] * p2[0] + p1[1] * p2[1] + p1[2] * p2[2]
-
 
 def cross(p1, p2):
     """ Cross product of two vectors """
@@ -39,18 +38,15 @@ def cross(p1, p2):
     z = p1[0] * p2[1] - p1[1] * p2[0]
     return x, y, z
 
-
 def determinant(p1, p2, p3):
     """ Determinant of three vectors """
     return dot(p1, cross(p2, p3))
-
 
 def normalize_angle(angle):
     """ Takes angle in degrees and returns angle from 0 to 360 degrees """
     cycles = angle / 360.
     normalized_cycles = cycles - math.floor(cycles)
     return normalized_cycles * 360.
-
 
 def sgn(x):
     """ Returns sign of number """
@@ -60,7 +56,6 @@ def sgn(x):
         return 1.
     else:
         return -1.
-
 
 def angle(v1, v2, n=None):
     """ Returns angle between v1 and v2 in degrees. n can be a vector that points to an observer who is looking at the plane containing v1 and v2. This way, you can get well-defined signs. """
@@ -75,25 +70,21 @@ def angle(v1, v2, n=None):
     deg = math.degrees(rad)
     return normalize_angle(deg)
 
-
 def great_circle_angle(p1, p2, p3):
     """ Returns angle w(p1,p2,p3) in degrees. Needs p1 != p2 and p2 != p3. """
     n1 = cross(p1, p2)
     n2 = cross(p3, p2)
     return angle(n1, n2, p2)
 
-
 def distance(p1, p2, r=EARTH_RADIUS):
     """ Returns length of curved way between two points p1 and p2 on a sphere with radius r. """
     return math.radians(angle(p1, p2)) * r
-
 
 def direction_name(angle):
     """ Returns a name for a direction given in degrees. Example: direction_name(0.0) returns "N", direction_name(90.0) returns "O", direction_name(152.0) returns "SSO". """
     index = int(round(normalize_angle(angle) / directions_step))
     index %= directions_num
     return direction_names[index]
-
 
 class Parser:
     """ A parser class using regular expressions. """
@@ -147,7 +138,6 @@ class Parser:
 
         return tree
 
-
 def getParser():
 
     position_parser = Parser()
@@ -186,12 +176,10 @@ def getParser():
 
     return position_parser
 
-
 def get_number(b):
     """ Takes appropriate branch of parse tree and returns float. """
     s = b["TEXT"].replace(",", ".")
     return float(s)
-
 
 def get_coordinate(b):
     """ Takes appropriate branch of the parse tree and returns degrees as a float. """
@@ -227,7 +215,6 @@ def get_coordinate(b):
 
     return r
 
-
 def parse_position(s):
     position_parser = getParser()
 
@@ -250,7 +237,6 @@ def parse_position(s):
     lon = lon_sign * get_coordinate(parse_tree["coordinates_ew"])
 
     return lat, lon
-
 
 def calculate(city1, city2, display=True):
     """
@@ -317,11 +303,61 @@ def degree_to_decimal(d, m, s):
     r = d + (((m * 60.0) + s ) / (60.0 * 60.0))
     return r
 
+def calculateFromHome(lat, lon, display=True):
+    reading_lat = None
+    reading_lon = None
+
+    # Latitude:  28.25.065 N =>  28.4347222
+    # Longitude: 81.41.868 W => -81.9244444
+    home_lat = degree_to_decimal(28, 25, 65)
+    home_lon = degree_to_decimal(81, 41, 868)
+
+    if isinstance(lat, (str, unicode)):
+        try:
+            # Latitude :  2831.07N
+            # Longitude:  08142.92W
+            lat_d = int(lat[0:2])
+            lat_m = int(lat[2:4])
+            lat_s = int(lat[5:7])
+
+            lon_d = int(lon[1:3])
+            lon_m = int(lon[3:5])
+            lon_s = int(lon[6:8])
+
+            reading_lat = degree_to_decimal(lat_d, lat_m, lat_s)
+            reading_lon = degree_to_decimal(lon_d, lon_m, lon_s)
+
+        except Exception, msg:
+            output(u"Error: %s" % msg)
+
+    elif isinstance(lat, float):
+        reading_lat = lat
+        reading_lon = lon
+
+    else:
+        return None
+
+    home = xyz(home_lat, home_lon)
+    city = xyz(reading_lat, reading_lon)
+
+    gl = calculate(home, city, display=True)
+
+    return gl
 
 if __name__ == u"__main__":
 
     if False:
         test_calculate()
+
+    elif False:
+        lat = 28.818
+        lon = abs(-82.256)
+        calculateFromHome(lat, lon, display=True)
+
+    elif True:
+        lat = u"2831.07N"
+        lon = u"08142.92W"
+        calculateFromHome(lat, lon, display=True)
 
     else:
         # Positive latitude is above the equator (N), and negative latitude is below the equator (S).
@@ -330,7 +366,6 @@ if __name__ == u"__main__":
 
         # Latitude:  28.25.065 N =>  28.4347222
         # Longitude: 81.41.868 W => -81.9244444
-
         home_lat = degree_to_decimal(28, 25, 65)
         home_lon = degree_to_decimal(81, 41, 868)
 
