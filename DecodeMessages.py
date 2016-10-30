@@ -155,13 +155,14 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                 logger.info(u"latitude : %s" % message[u"latitude"])
                 # longitude : -82.2565
                 # latitude  : 27.8183333333
+
                 lat = abs(message.pop(u"latitude", None))
                 lon = abs(message.pop(u"longitude", None))
                 gl = geo_lib.calculateFromHome(lat, lon, display=True)
                 if gl is not None:
                     logger.info(u"Miles   : %3.2f" % (gl[0][0]))
                     logger.info(u"Compass : %3.2f" % (gl[2][1]))
-                    rbs.send_message(u"Miles : %3.2f \nCompass %3.2f" % (gl[0][0], gl[2][1]))
+                    rbs.send_message(u"Miles : %3.2f\nCompass %3.2f" % (gl[0][0], gl[2][1]))
 
             elif u"Longitude" in message:
                 logger.info(u"Longitude : %s" % message[u"Longitude"])
@@ -178,7 +179,7 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                     if gl is not None:
                         logger.info(u"Miles   : %3.2f" % (gl[0][0]))
                         logger.info(u"Compass : %3.2f" % (gl[2][1]))
-                        rbs.send_message(u"Miles : %3.2f \nCompass %3.2f" % (gl[0][0], gl[2][1]))
+                        rbs.send_message(u"Miles : %3.2f\nCompass %3.2f" % (gl[0][0], gl[2][1]))
         except Exception, msg:
             logger.warn(u"%s" % msg)
 
