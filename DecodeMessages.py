@@ -15,6 +15,7 @@ from rmq.rmq_send import *
 from pymongo import *
 
 from aprs_table_and_symbols import *
+import geo_lib
 
 from Logger import *
 logger = setupLogging(__name__)
@@ -147,6 +148,39 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
             rbs.send_message(u"From: {}\n{} To: {}".format(fm, mt[0], to))
         else:
             rbs.send_message(u"From: {}\n  To: {}".format(fm, to))
+
+        try:
+            if u"longitude" in message:
+                logger.info(u"longitude : %s" % message[u"longitude"])
+                logger.info(u"latitude : %s" % message[u"latitude"])
+                # longitude : -82.2565
+                # latitude  : 27.8183333333
+                lat = abs(message.pop(u"latitude", None))
+                lon = abs(message.pop(u"longitude", None))
+                gl = geo_lib.calculateFromHome(lat, lon, display=True)
+                if gl is not None:
+                    logger.info(u"Miles   : %3.2f" % (gl[0][0]))
+                    logger.info(u"Compass : %3.2f" % (gl[2][1]))
+                    rbs.send_message(u"Miles : %3.2f \nCompass %3.2f" % (gl[0][0], gl[2][1]))
+
+            elif u"Longitude" in message:
+                logger.info(u"Longitude : %s" % message[u"Longitude"])
+                logger.info(u"Latitude : %s" % message[u"Latitude"])
+                # Latitude  : 2831.07N - [0-9]{4}.[0-9]{2}[NS]{1}
+                # Longitude : 08142.92W - [0-9]{5}.[0-9]{2}[WE]
+
+                if re.match( r"[0-9]{4}.[0-9]{2}[NS]", message[u"Latitude"], re.M|re.I) and \
+                    re.match(r"[0-9]{5}.[0-9]{2}[WE]", message[u"Longitude"], re.M | re.I):
+
+                    lat = message.pop(u"Latitude", None)
+                    lon = message.pop(u"Longitude", None)
+                    gl = geo_lib.calculateFromHome(lat, lon, display=True)
+                    if gl is not None:
+                        logger.info(u"Miles   : %3.2f" % (gl[0][0]))
+                        logger.info(u"Compass : %3.2f" % (gl[2][1]))
+                        rbs.send_message(u"Miles : %3.2f \nCompass %3.2f" % (gl[0][0], gl[2][1]))
+        except Exception, msg:
+            logger.warn(u"%s" % msg)
 
         # Preferred fields
         if gm is None:
