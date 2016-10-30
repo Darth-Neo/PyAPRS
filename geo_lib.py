@@ -9,7 +9,7 @@ logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
 #output = print
-output = logger.info
+output = logger.debug
 
 EARTH_RADIUS = 6370000.
 MAG_LAT = 82.7
