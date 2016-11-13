@@ -1,9 +1,10 @@
-#!/usr/bin/env python
+from __future__ import print_function
 #
 # Logging
 #
 __VERSION__ = 0.1
 __author__ = u'morrj140'
+
 import os
 import logging
 import logging.handlers

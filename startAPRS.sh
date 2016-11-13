@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+~/bin/startMongoDB.sh
 export PGM="DecodeMessages.py"
 export CMD=$HOME/PythonDev/pyaprs/pyaprs/$PGM
 export LOGS=$HOME/logs/$PGM.log

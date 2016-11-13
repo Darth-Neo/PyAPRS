@@ -18,6 +18,7 @@ from aprs_table_and_symbols import *
 import geo_lib
 
 from Logger import *
+
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
@@ -26,19 +27,21 @@ field_count = 0
 client = MongoClient(u'mongodb://localhost:27017/')
 database = u"local"
 collection = u"Weather"
-CLEAR_DB = False # True
-SLEEP_TIME = 10 # 5 minutes times 60 seconds
+CLEAR_DB = False  # True
+SLEEP_TIME = 10  # 5 minutes times 60 seconds
 
-configFile=u"." + os.sep + u"rmq" + os.sep + u"rmq_settings.conf"
+configFile = u"." + os.sep + u"rmq" + os.sep + u"rmq_settings.conf"
 logger.info(u"%s" % configFile)
 rbs = RabbitSend(configFile=configFile)
 CLEAR_MESSAGES = True
-message_counter =dict()
+message_counter = dict()
+
 
 def run_cmd(cmd):
     p = Popen(cmd, shell=True, stdout=PIPE)
     output = p.communicate()[0]
     return output
+
 
 def get_CommandLine_Options(av):
     program = u""
@@ -69,6 +72,7 @@ def get_CommandLine_Options(av):
 
     return program, inputfile, outputfile
 
+
 def get_gqrx_log_files(test=False):
     logs = list()
     path = os.environ[u"HOME"] + os.sep + u"logs"
@@ -87,6 +91,7 @@ def get_gqrx_log_files(test=False):
                     logs.append(rFile)
 
     return logs
+
 
 def get_aprs_messages(messages):
     aprs_messages = list()
@@ -113,10 +118,12 @@ def get_aprs_messages(messages):
 
     return aprs_messages
 
+
 def decode_symbol(sym):
     s = sym.title()
 
     return symbols[s]
+
 
 def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=False):
     """
@@ -161,8 +168,8 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                 gl = geo_lib.calculateFromHome(lat, lon, display=True)
                 if gl is not None:
                     logger.info(u"Miles   : %3.2f" % (gl[0][0]))
-                    logger.info(u"Compass : %3.2f" % (gl[2][1]))
-                    rbs.send_message(u"Miles : %3.2f\nCompass %3.2f" % (gl[0][0], gl[2][1]))
+                    logger.info(u"Compass : %3.2f %s" % (gl[2][1], gl[1][1]))
+                    rbs.send_message(u"Miles : %3.2f\nCompass %3.2f %s" % (gl[0][0], gl[2][1], gl[1][1]))
 
             elif u"Longitude" in message:
                 logger.info(u"Longitude : %s" % message[u"Longitude"])
@@ -170,16 +177,16 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                 # Latitude  : 2831.07N - [0-9]{4}.[0-9]{2}[NS]{1}
                 # Longitude : 08142.92W - [0-9]{5}.[0-9]{2}[WE]
 
-                if re.match( r"[0-9]{4}.[0-9]{2}[NS]", message[u"Latitude"], re.M|re.I) and \
-                    re.match(r"[0-9]{5}.[0-9]{2}[WE]", message[u"Longitude"], re.M | re.I):
+                if re.match(r"[0-9]{4}.[0-9]{2}[NS]", message[u"Latitude"], re.M | re.I) and \
+                        re.match(r"[0-9]{5}.[0-9]{2}[WE]", message[u"Longitude"], re.M | re.I):
 
                     lat = message.pop(u"Latitude", None)
                     lon = message.pop(u"Longitude", None)
                     gl = geo_lib.calculateFromHome(lat, lon, display=True)
                     if gl is not None:
                         logger.info(u"Miles   : %3.2f" % (gl[0][0]))
-                        logger.info(u"Compass : %3.2f" % (gl[2][1]))
-                        rbs.send_message(u"Miles : %3.2f\nCompass %3.2f" % (gl[0][0], gl[2][1]))
+                        logger.info(u"Compass : %3.2f %s" % (gl[2][1], gl[1][1]))
+                        rbs.send_message(u"Miles : %3.2f\nCompass %3.2f %s" % (gl[0][0], gl[2][1], gl[1][1]))
         except Exception, msg:
             logger.warn(u"%s" % msg)
 
@@ -196,11 +203,15 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                   # u"wx_raw_timestamp",
                   u"Message_Type",
                   u"comment"
-                ]
+                  ]
 
         # Begin displaying messages
         for k, v in sorted(message.items(), reverse=False):
-            logger.info(u"{0} : {1}".format(k, v))
+            if isinstance(v, dict):
+                for k1, v1 in v.items():
+                    logger.info(u"{0} : {1}".format(k1, v1))
+            else:
+                logger.info(u"{0} : {1}".format(k, v))
             if ALL_FIELDS or k in gm:
                 if v is not None:
                     logger.debug(u"*** Match : {0} ***".format(v))
@@ -243,7 +254,7 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
         if DISPLAY_MESSAGE_COUNTS is True or minute in (0, 10, 20, 30, 40, 50):
             for k, v in message_counter.items():
                 mt = message_types[k]
-                output = u"{}\n{}".format(mt,v)
+                output = u"{}\n{}".format(mt, v)
                 rbs.send_message(output)
 
         # Finish by sending the Date and Time
@@ -252,6 +263,7 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
 
     except Exception, msg:
         logger.warn(u"%s" % msg)
+
 
 def queue_Message(message, header=None, footer=None, hash=False):
     global client
@@ -293,6 +305,7 @@ def queue_Message(message, header=None, footer=None, hash=False):
 
     display_Message(message)
 
+
 def log_aprs_lib_message(result):
     """
     Logs eMic messages that have special decoding needs
@@ -314,6 +327,7 @@ def log_aprs_lib_message(result):
         except Exception, msg:
             logger.error(u"%s" % msg)
 
+
 def parse_ULTW_Message(field, msg, scale=1.0):
     u"""
     function to convert hex to the proper value
@@ -324,7 +338,7 @@ def parse_ULTW_Message(field, msg, scale=1.0):
     """
     fld = None
     try:
-        #if field <> u"----":
+        # if field <> u"----":
         if re.match(r"^[0-9A-Za-z]{4}", field, re.M | re.I):
             fld = int(u"0x" + field, 16) * scale
             logger.debug(u"%7.2f : %s" % (fld, msg))
@@ -333,8 +347,8 @@ def parse_ULTW_Message(field, msg, scale=1.0):
 
     return fld
 
-def parse_Zulu_EDT(pt):
 
+def parse_Zulu_EDT(pt):
     try:
         if True:
             t = int(u"0x" + pt, 16)
@@ -352,12 +366,14 @@ def parse_Zulu_EDT(pt):
 
     return zulu
 
+
 def parse_Days(days):
     year = int(datetime.now().strftime(u'%Y'))
     n = datetime(day=1, month=1, year=year)
     EndDate = n + timedelta(days=days)
 
     return EndDate.strftime(u'%Y/%m/%d')
+
 
 def parse_aprs_fields(fields):
     """
@@ -427,7 +443,7 @@ def parse_aprs_fields(fields):
                     logger.debug(u"%6d : [ Wind Gust]" % fv)
                     fld[u"Wind Gust"] = fv
 
-                elif field[-1:] in (u"N", u"S"): #  and len(field) > 2:
+                elif field[-1:] in (u"N", u"S"):  # and len(field) > 2:
                     n = 11
                     logger.debug(u"%6s : [ Latitude ]" % field)
                     fld[u"Latitude"] = field
@@ -483,12 +499,12 @@ def parse_aprs_fields(fields):
 
             n = 22
             m = u"Current Outdoor Temp (0_1 deg F increments)"
-            msg =u"Temperature"
+            msg = u"Temperature"
             fld[msg] = parse_ULTW_Message(fields[3], msg, scale=0.1)
 
             n = 23
             msg = u"Rain Long Term Total (0_01 in increments)"
-            #fld[msg] = parse_ULTW_Message(fields[4], msg, scale=0.01)
+            # fld[msg] = parse_ULTW_Message(fields[4], msg, scale=0.01)
 
             n = 24
             m = u"Current Barometer (0_1 mbar increments)"
@@ -516,7 +532,7 @@ def parse_aprs_fields(fields):
             n = 29
             m = u"Date (day of year since January 1)"
             msg = u"Date"
-            #fld[msg] = parse_ULTW_Message(fields[10], msg)
+            # fld[msg] = parse_ULTW_Message(fields[10], msg)
 
             n = 30
             msg2 = u"Zulu Time"
@@ -528,11 +544,11 @@ def parse_aprs_fields(fields):
 
             n = 31
             msg = u"Today's Rain Total (0_01 inch increments)"
-            #fld[msg] = parse_ULTW_Message(fields[12], msg, scale=0.01)
+            # fld[msg] = parse_ULTW_Message(fields[12], msg, scale=0.01)
 
             n = 32
             msg = u"Minute Wind Speed Average (0_1kph increments)"
-            #fld[msg] = parse_ULTW_Message(fields[13], msg, scale=0.1)
+            # fld[msg] = parse_ULTW_Message(fields[13], msg, scale=0.1)
 
             field_count += len(fld)
 
@@ -547,6 +563,7 @@ def parse_aprs_fields(fields):
         logger.debug(u"Unknown")
         return None
 
+
 def parse_aprs_header(header, footer, n=0):
     header_fields = None
     aprs_addresses = None
@@ -558,23 +575,24 @@ def parse_aprs_header(header, footer, n=0):
         to = addresses[4]
         path = addresses[6]
 
-        if path is None or not(len(path) > 1):
+        if path is None or not (len(path) > 1):
             via = addresses[5]
             logger.error(u"via is {0!r}".format(via))
 
         # M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2
-        aprs_addresses = u"{0}>{1},{2}:{3}" .format(fm, to, path, footer)
+        aprs_addresses = u"{0}>{1},{2}:{3}".format(fm, to, path, footer)
         message = u"{0!r} ->{1!r}-> {2!r}".format(fm, path, to)
         logger.info(message)
 
         logger.debug(u"%3d [%s]" % (n, header[10:]))
         logger.debug(u"    [%s]" % footer)
 
-        header_fields = {u"From" : fm, u"To" : to, u"Path": path}
+        header_fields = {u"From": fm, u"To": to, u"Path": path}
     except Exception, msg:
         logger.error(u"%s" % msg)
 
     return header_fields, aprs_addresses
+
 
 def parse_aprs_footer(footer, msg_bytes):
     n = y = x = 0
@@ -606,9 +624,9 @@ def parse_aprs_footer(footer, msg_bytes):
 
     return fields
 
+
 # Decode all messages
 def decode_aprs_messages(msgs):
-
     global field_errors
     global message_counter
 
@@ -877,7 +895,7 @@ def decode_aprs_messages(msgs):
                         fields.update(header_fields)
                         queue_Message(fields, header=header, footer=footer)
 
-                    except Exception, msg: #else:
+                    except Exception, msg:  # else:
                         logger.info(u"7c %s" % msg)
                         message_bytes = (1, 9, 1, 7, 13, 43)
                         fields = parse_aprs_footer(footer, message_bytes)
@@ -939,8 +957,8 @@ def decode_aprs_messages(msgs):
 
     return message_counter
 
-def decodeMessages(test=True):
 
+def decodeMessages(test=True):
     try:
         logFl = get_gqrx_log_files(test=test)
 
@@ -969,6 +987,7 @@ def decodeMessages(test=True):
 
     except KeyboardInterrupt:
         logger.info(u"Bye ")
+
 
 def loopDecodeMessages(test=False):
     eofl = dict()
@@ -1001,8 +1020,10 @@ def loopDecodeMessages(test=False):
             logger.info(u"GQRX Closed log file, attempting restart")
             logFl = get_gqrx_log_files(test=test)
 
+
 def test_decodeMessages():
     decodeMessages(test=True)
+
 
 if __name__ == u"__main__":
 
