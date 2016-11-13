@@ -1,6 +1,4 @@
-#!/usr/bin/env python
 ### Functions for dealing with points on a sphere ###
-from __future__ import print_function
 import math
 import re
 
@@ -8,17 +6,59 @@ from Logger import *
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
-#output = print
-output = logger.debug
-
 EARTH_RADIUS = 6370000.
 MAG_LAT = 82.7
 MAG_LON = -114.4
 
 direction_names = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
 directions_num = len(direction_names)
-directions_step = 360. / directions_num
+directions_step = 360.0 / directions_num
 
+def calculateFromHome(lat, lon, display=True):
+    reading_lat = None
+    reading_lon = None
+
+    # Latitude:  28.25.065 N =>  28.4347222
+    # Longitude: 81.41.868 W => -81.9244444
+    home_lat = degree_to_decimal(28, 25, 65)
+    home_lon = degree_to_decimal(81, 41, 868)
+
+    if isinstance(lat, (str, unicode)):
+
+        # Latitude :  2831.07N
+        # Longitude:  08142.92W
+        lat_d = int(lat[0:2])
+        lat_m = int(lat[2:4])
+        lat_s = int(lat[5:7])
+
+        lon_d = int(lon[1:3])
+        lon_m = int(lon[3:5])
+        lon_s = int(lon[6:8])
+
+        reading_lat = degree_to_decimal(lat_d, lat_m, lat_s)
+        reading_lon = degree_to_decimal(lon_d, lon_m, lon_s)
+
+    elif isinstance(lat, float):
+        reading_lat = lat
+        reading_lon = lon
+
+    else:
+        return None
+
+    home = xyz(home_lat, home_lon)
+    city = xyz(reading_lat, reading_lon)
+
+    gl = calculate(home, city, display=True)
+
+    logger.debug(u"_____________________________________________________")
+    logger.debug(u"%3.2f Miles" % gl[0][0])
+    logger.debug(u"%3.2f Magnetic North" % gl[2][0])
+    logger.debug(u"%3.2f True North" % gl[2][1])
+    logger.debug(u"%3.2f %s Declination" % (gl[1][0], gl[1][1]))
+
+    logger.debug(u"%3.2f \ %3.2f" % (gl[0][0], gl[2][1]))
+
+    return gl
 
 def xyz(lat, lon, r=EARTH_RADIUS):
     """ Takes spherical coordinates and returns a triple of cartesian coordinates """
@@ -283,19 +323,11 @@ def calculate(city1, city2, display=True):
     gl.append(tn)
 
     if display is True:
-        # output(u"%3.2f KM" % kilometers)
-        output(u"%3.2f Miles" % miles)
-        output(u"%3.2f Magnetic North" % magnetic_north)
-        output(u"%3.2f True North" % true_north)
-        output(u"%3.2f %s Direction" % (ang, ang_s))
-
-    return gl
-
-def test_calculate():
-    # Test
-    city1 = xyz(52.518611, 13.408056)
-    city2 = xyz(48.137222, 11.575556)
-    gl = calculate(city1, city2, display=True)
+        # logger.debug(u"%3.2f KM" % kilometers)
+        logger.debug(u"%3.2f Miles" % miles)
+        logger.debug(u"%3.2f Magnetic North" % magnetic_north)
+        logger.debug(u"%3.2f True North" % true_north)
+        logger.debug(u"%3.2f %s Direction" % (ang, ang_s))
 
     return gl
 
@@ -303,93 +335,7 @@ def degree_to_decimal(d, m, s):
     r = d + (((m * 60.0) + s ) / (60.0 * 60.0))
     return r
 
-def calculateFromHome(lat, lon, display=True):
-    reading_lat = None
-    reading_lon = None
-
-    # Latitude:  28.25.065 N =>  28.4347222
-    # Longitude: 81.41.868 W => -81.9244444
-    home_lat = degree_to_decimal(28, 25, 65)
-    home_lon = degree_to_decimal(81, 41, 868)
-
-    if isinstance(lat, (str, unicode)):
-        try:
-            # Latitude :  2831.07N
-            # Longitude:  08142.92W
-            lat_d = int(lat[0:2])
-            lat_m = int(lat[2:4])
-            lat_s = int(lat[5:7])
-
-            lon_d = int(lon[1:3])
-            lon_m = int(lon[3:5])
-            lon_s = int(lon[6:8])
-
-            reading_lat = degree_to_decimal(lat_d, lat_m, lat_s)
-            reading_lon = degree_to_decimal(lon_d, lon_m, lon_s)
-
-        except Exception, msg:
-            output(u"Error: %s" % msg)
-
-    elif isinstance(lat, float):
-        reading_lat = lat
-        reading_lon = lon
-
-    else:
-        return None
-
-    home = xyz(home_lat, home_lon)
-    city = xyz(reading_lat, reading_lon)
-
-    gl = calculate(home, city, display=True)
-
-    return gl
 
 if __name__ == u"__main__":
 
-    if False:
-        test_calculate()
-
-    elif False:
-        lat = 28.818
-        lon = abs(-82.256)
-        calculateFromHome(lat, lon, display=True)
-
-    elif True:
-        lat = u"2831.07N"
-        lon = u"08142.92W"
-        calculateFromHome(lat, lon, display=True)
-
-    else:
-        # Positive latitude is above the equator (N), and negative latitude is below the equator (S).
-        # Positive longitude is east of the prime meridian, while negative longitude is west of the
-        # prime meridian (a north-south line that runs through a point in England).
-
-        # Latitude:  28.25.065 N =>  28.4347222
-        # Longitude: 81.41.868 W => -81.9244444
-        home_lat = degree_to_decimal(28, 25, 65)
-        home_lon = degree_to_decimal(81, 41, 868)
-
-        # Latitude:  28.15.27 N
-        # Longitude: 81.39.28 W
-        reading_lat = degree_to_decimal(28, 15, 27)
-        reading_lon = degree_to_decimal(81, 39, 28)
-
-        output(u"h lat = %3.3f \t lon = %3.3f" % (home_lat, home_lon))
-        output(u"r lat = %3.3f \t lon = %3.3f" % (reading_lat, reading_lon))
-
-        city1 = xyz(home_lat, home_lon)
-        city2 = xyz(reading_lat, reading_lon)
-
-        gl = calculate(city1, city2, display=True)
-
-        output(u"-----------------------------------------")
-        output(u"%3.2f Miles" % gl[0][0])
-        output(u"%3.2f Magnetic North" % gl[2][0])
-        output(u"%3.2f True North" % gl[2][1])
-        output(u"%3.2f %s Declination" % (gl[1][0], gl[1][1]))
-
-        output(u"%3.2f \ %3.2f"
-               u"" % (gl[0][0], gl[2][1]))
-
-
-
+    pass
