@@ -13,7 +13,7 @@ from dateutil import tz
 from datetime import date, datetime
 from rmq.rmq_send import *
 from pymongo import *
-
+from GetPid import *
 from aprs_table_and_symbols import *
 import geo_lib
 
@@ -24,10 +24,14 @@ logger.setLevel(INFO)
 
 field_errors = 0
 field_count = 0
+
+MongoPersist = False
+
 client = MongoClient(u'mongodb://localhost:27017/')
 database = u"local"
 collection = u"Weather"
 CLEAR_DB = False  # True
+
 SLEEP_TIME = 10  # 5 minutes times 60 seconds
 
 configFile = u"." + os.sep + u"rmq" + os.sep + u"rmq_settings.conf"
@@ -58,7 +62,7 @@ def get_CommandLine_Options(av):
 
     for opt, arg in opts:
         if opt == u'-h':
-            logger.info(u"%s -i <inputfile> -o <outputfile>" % program)
+            logger.debug(u"%s -i <inputfile> -o <outputfile>" % program)
             sys.exit()
 
         elif opt in (u"-i", u"--ifile"):
@@ -158,8 +162,8 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
 
         try:
             if u"longitude" in message:
-                logger.info(u"longitude : %s" % message[u"longitude"])
-                logger.info(u"latitude : %s" % message[u"latitude"])
+                logger.debug(u"longitude : %s" % message[u"longitude"])
+                logger.debug(u"latitude : %s" % message[u"latitude"])
                 # longitude : -82.2565
                 # latitude  : 27.8183333333
 
@@ -172,8 +176,8 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                     rbs.send_message(u"Miles : %3.2f\nCompass %3.2f %s" % (gl[0][0], gl[2][1], gl[1][1]))
 
             elif u"Longitude" in message:
-                logger.info(u"Longitude : %s" % message[u"Longitude"])
-                logger.info(u"Latitude : %s" % message[u"Latitude"])
+                logger.debug(u"Longitude : %s" % message[u"Longitude"])
+                logger.debug(u"Latitude : %s" % message[u"Latitude"])
                 # Latitude  : 2831.07N - [0-9]{4}.[0-9]{2}[NS]{1}
                 # Longitude : 08142.92W - [0-9]{5}.[0-9]{2}[WE]
 
@@ -188,17 +192,17 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                         logger.info(u"Compass : %3.2f %s" % (gl[2][1], gl[1][1]))
                         rbs.send_message(u"Miles : %3.2f\nCompass %3.2f %s" % (gl[0][0], gl[2][1], gl[1][1]))
         except Exception, msg:
-            logger.warn(u"%s" % msg)
+            logger.debug(u"%s" % msg)
 
         # Preferred fields
         if gm is None:
             gm = [u"Temperature", u"Humidity", u"Barometer", u"Barometric Pressure",
                   # u"Time", u"ReadingDateTime", u"Zulu Time",
                   # u"symbol", u"symbol_table", u"Alternate Symbol Table",
-                  u"longitude", u"latitude", u"Longitude", u"Latitude",
+                  # u"longitude", u"latitude", u"Longitude", u"Latitude",
                   u"object_name",
                   u"Rainfall since midnight", u"Rainfall in the last hour", u"Rainfall in the last 24 hour",
-                  u"Course/Speed", u"altitude", u"course", u"speed",
+                  # u"Course/Speed", u"altitude", u"course", u"speed",
                   u"Wind Gust", u"Wind Speed PeaK", u"Wind Direction",
                   # u"wx_raw_timestamp",
                   u"Message_Type",
@@ -209,9 +213,9 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
         for k, v in sorted(message.items(), reverse=False):
             if isinstance(v, dict):
                 for k1, v1 in v.items():
-                    logger.info(u"{0} : {1}".format(k1, v1))
+                    logger.debug(u"{0} : {1}".format(k1, v1))
             else:
-                logger.info(u"{0} : {1}".format(k, v))
+                logger.debug(u"{0} : {1}".format(k, v))
             if ALL_FIELDS or k in gm:
                 if v is not None:
                     logger.debug(u"*** Match : {0} ***".format(v))
@@ -246,12 +250,12 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
             symbol = message[u'symbol']
             vl = findSymbolName(symbol_table, symbol)
             output = u"[%s%s] : %s" % (symbol_table, symbol, vl)
-            logger.info(output)
+            logger.debug(output)
             rbs.send_message(output)
 
         # Display message counts
         minute = datetime.now().minute
-        if DISPLAY_MESSAGE_COUNTS is True or minute in (0, 10, 20, 30, 40, 50):
+        if DISPLAY_MESSAGE_COUNTS is True and minute in (0, 10, 20, 30, 40, 50):
             for k, v in message_counter.items():
                 mt = message_types[k]
                 output = u"{}\n{}".format(mt, v)
@@ -992,10 +996,10 @@ def decodeMessages(test=True):
 def loopDecodeMessages(test=False):
     eofl = dict()
 
-    logFl = get_gqrx_log_files(test=test)
-
     while True:
         try:
+            logFl = get_gqrx_log_files(test=test)
+
             for n, lf in enumerate(logFl):
 
                 if lf not in eofl.keys():
@@ -1003,6 +1007,7 @@ def loopDecodeMessages(test=False):
                     messages = f.read()
                     eofl[lf] = (f.tell(), f, lf)
                     logger.debug(u"%d : %s" % (f.tell(), lf))
+
                 else:
                     eofm = eofl[lf][0]
                     f = eofl[lf][1]
@@ -1016,7 +1021,7 @@ def loopDecodeMessages(test=False):
 
             time.sleep(SLEEP_TIME)
 
-        except Exception, msg:
+        except Exception:
             logger.info(u"GQRX Closed log file, attempting restart")
             logFl = get_gqrx_log_files(test=test)
 
@@ -1027,9 +1032,21 @@ def test_decodeMessages():
 
 if __name__ == u"__main__":
 
-    program, ifile, ofile = get_CommandLine_Options(sys.argv)
+    fpn = u"mongpd"
+    process_found, pid, sp = getPID(fpn)
 
-    if False:
-        decodeMessages(test=False)
-    else:
-        loopDecodeMessages(test=False)
+    if process_found is False:
+        logger.error(u"Need to start %s first!" % fpn)
+        sys.exit(1)
+
+    try:
+
+        program, ifile, ofile = get_CommandLine_Options(sys.argv)
+
+        if False:
+            decodeMessages(test=False)
+        else:
+            loopDecodeMessages(test=False)
+
+    except KeyboardInterrupt:
+        logger.info(u"Bye")

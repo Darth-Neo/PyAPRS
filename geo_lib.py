@@ -291,43 +291,35 @@ def calculate(city1, city2, display=True):
     kilometers = distance(city1, city2) / 1000.0
     miles = kilometers * 0.62
 
-    # gl[0]
-    d = list()
-    d.append(miles)
-    d.append(kilometers)
-    gl.append(d)
-
-    ang = angle(city1, city2)
-    ang_s = direction_name(ang)
-
-    # gl[1]
-    a = list()
-    a.append(ang)
-    a.append(ang_s)
-    gl.append(a)
+    gl.append(miles)
 
     # The direction in degrees you would have to adjust your compass to when you want
     # to go from city1 to city2 if there were no declination.
     #
     # This does NOT work, because there are strong irregularities of the magnetic field of the earth,
     # that's why the compass needle does not point to the magnetic northpole on every point of the earth.
-    magnetic_north =  great_circle_angle(city2, city1, magnetic_northpole)
+    magnetic_north = great_circle_angle(city2, city1, magnetic_northpole)
 
     #  if you adjust your compass to this angle you will actually get to city2.
     true_north = great_circle_angle(city2, city1, geographic_northpole)
 
-    # gl[2]
-    tn = list()
-    tn.append(magnetic_north)
-    tn.append(true_north)
-    gl.append(tn)
+    gl.append(magnetic_north)
+
+    # ang = angle(city1, city2)
+    gl.append(direction_name(true_north))
+
+    # gl[1]
+    # a = list()
+    # a.append(ang)
+    # a.append(ang_s)
+    # gl.append(a)
+
 
     if display is True:
         # logger.debug(u"%3.2f KM" % kilometers)
         logger.debug(u"%3.2f Miles" % miles)
         logger.debug(u"%3.2f Magnetic North" % magnetic_north)
         logger.debug(u"%3.2f True North" % true_north)
-        logger.debug(u"%3.2f %s Direction" % (ang, ang_s))
 
     return gl
 
