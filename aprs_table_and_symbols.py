@@ -287,13 +287,13 @@ if __name__ == u"__main__":
     db = client[u"local"]
     collection = db[u'Weather']
 
-    for post in collection.find({"symbol": {"$exists": "True"}}):
-        symbol_table = post['symbol_table']
-        symbol = post['symbol']
+    for post in collection.find({u"symbol": {u"$exists": u"True"}}):
+        symbol_table = post[u'symbol_table']
+        symbol = post[u'symbol']
         vl = findSymbolName(symbol_table, symbol)
 
         if vl is not None:
-            logger.info("%s%s : %s" % (symbol_table, symbol_table, vl))
+            logger.info(u"%s%s : %s" % (symbol_table, symbol_table, vl))
 
 
 
