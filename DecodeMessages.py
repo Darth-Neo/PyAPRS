@@ -42,12 +42,22 @@ message_counter = dict()
 
 
 def run_cmd(cmd):
+    """
+    Executee a command
+    :param cmd:
+    :return:
+    """
     p = Popen(cmd, shell=True, stdout=PIPE)
     output = p.communicate()[0]
     return output
 
 
 def get_CommandLine_Options(av):
+    """
+    Get Options from the command line
+    :param av:
+    :return:
+    """
     program = u""
     opts = u""
     inputfile = u""
@@ -78,13 +88,17 @@ def get_CommandLine_Options(av):
 
 
 def get_gqrx_log_files(test=False):
+    """
+    Get the log file to decode
+    :param test:
+    :return:
+    """
     logs = list()
     path = os.environ[u"HOME"] + os.sep + u"logs"
 
     if test is True:
         rFile = u"test" + os.sep + u"test_messages.txt"
         logs.append(rFile)
-
     else:
         for root, dirs, files in os.walk(path, topdown=False):
             for name in files:
@@ -98,6 +112,11 @@ def get_gqrx_log_files(test=False):
 
 
 def get_aprs_messages(messages):
+    """
+    Get APRS Messages
+    :param messages:
+    :return:
+    """
     aprs_messages = list()
     begin_message = False
 
@@ -124,6 +143,11 @@ def get_aprs_messages(messages):
 
 
 def decode_symbol(sym):
+    """
+    Lookyp Sysbol
+    :param sym:
+    :return:
+    """
     s = sym.title()
 
     return symbols[s]
@@ -270,6 +294,14 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
 
 
 def queue_Message(message, header=None, footer=None, hash=False):
+    """
+    Queue up messages via RabbitMQ
+    :param message:
+    :param header:
+    :param footer:
+    :param hash:
+    :return:
+    """
     global client
     global CLEAR_DB
     global database
@@ -353,6 +385,11 @@ def parse_ULTW_Message(field, msg, scale=1.0):
 
 
 def parse_Zulu_EDT(pt):
+    """
+    Convert time from Zulu time
+    :param pt:
+    :return:
+    """
     try:
         if True:
             t = int(u"0x" + pt, 16)
@@ -372,6 +409,11 @@ def parse_Zulu_EDT(pt):
 
 
 def parse_Days(days):
+    """
+    Parse out data from string
+    :param days:
+    :return:
+    """
     year = int(datetime.now().strftime(u'%Y'))
     n = datetime(day=1, month=1, year=year)
     EndDate = n + timedelta(days=days)
@@ -569,6 +611,13 @@ def parse_aprs_fields(fields):
 
 
 def parse_aprs_header(header, footer, n=0):
+    """
+    Parse APRS Headers
+    :param header:
+    :param footer:
+    :param n:
+    :return:
+    """
     header_fields = None
     aprs_addresses = None
 
@@ -599,6 +648,12 @@ def parse_aprs_header(header, footer, n=0):
 
 
 def parse_aprs_footer(footer, msg_bytes):
+    """
+    Parse APRS Footer
+    :param footer:
+    :param msg_bytes:
+    :return:
+    """
     n = y = x = 0
     fields = list()
     logger.debug(u"%s" % footer)
@@ -631,6 +686,11 @@ def parse_aprs_footer(footer, msg_bytes):
 
 # Decode all messages
 def decode_aprs_messages(msgs):
+    """
+    Decode APRS Messages
+    :param msgs:
+    :return:
+    """
     global field_errors
     global message_counter
 
@@ -963,6 +1023,14 @@ def decode_aprs_messages(msgs):
 
 
 def decodeMessages(test=True):
+    """
+    Decode Messages
+    :param test:
+    :return:
+    """
+    global field_errors
+    global field_count
+
     try:
         logFl = get_gqrx_log_files(test=test)
 
@@ -994,53 +1062,65 @@ def decodeMessages(test=True):
 
 
 def loopDecodeMessages(test=False):
-    eofl = dict()
+    """
+    Loop messages and decode as needed
+    """
+    cw = os.getcwd()
+    ofn = cw + os.sep + u"DecodeMessageLine.sl"
 
     while True:
         try:
             logFl = get_gqrx_log_files(test=test)
 
+            eofl = loadObject(ofn)
+
             for n, lf in enumerate(logFl):
 
                 if lf not in eofl.keys():
-                    f = open(lf, "rb")
-                    messages = f.read()
-                    eofl[lf] = (f.tell(), f, lf)
-                    logger.debug(u"%d : %s" % (f.tell(), lf))
-
+                    with open(lf, "rb") as f:
+                        messages = f.read()
+                        eofl[lf] = (f.tell(), lf)
+                        logger.debug(u"%d : %s" % (f.tell(), lf))
                 else:
                     eofm = eofl[lf][0]
-                    f = eofl[lf][1]
-                    f.seek(eofm)
-                    messages = f.read()
-                    eofl[lf] = (f.tell(), f, lf)
-                    logger.debug(u"%d : %s" % (f.tell(), lf))
+                    logger.info(u"eofm = %d" % eofm)
+                    with open(lf, "rb") as cf:
+                        cf.seek(eofm)
+                        messages = cf.read()
+                        if len(messages) > 0:
+                            eofl[lf] = (cf.tell(), lf)
+                            logger.debug(u"%d : %s" % (cf.tell(), lf))
 
+                saveObject(eofl, ofn)
                 msgs = get_aprs_messages(messages)
                 decode_aprs_messages(msgs)
 
             time.sleep(SLEEP_TIME)
 
-        except Exception:
-            logger.info(u"GQRX Closed log file, attempting restart")
+        except Exception, msg:
+            logger.info(u"%s" % msg)
             logFl = get_gqrx_log_files(test=test)
 
 
 def test_decodeMessages():
+    """
+    Test decoding of messages
+    :return:
+    """
     decodeMessages(test=True)
 
 
 if __name__ == u"__main__":
 
-    fpn = u"mongpd"
-    process_found, pid, sp = getPID(fpn)
+    if False:
+        fpn = u"mongpd"
+        process_found, pid, sp = getPID(fpn)
 
-    if process_found is False:
-        logger.error(u"Need to start %s first!" % fpn)
-        sys.exit(1)
+        if process_found is False:
+            logger.error(u"Need to start %s first!" % fpn)
+            sys.exit(1)
 
     try:
-
         program, ifile, ofile = get_CommandLine_Options(sys.argv)
 
         if False:

@@ -4,17 +4,29 @@ import os
 import psutil
 import subprocess
 from subprocess import check_output, CalledProcessError
-
+from subprocess import *
 from Logger import *
 
 logger = setupLogging(__name__)
 logger.setLevel(DEBUG)
 
+def startProcess(pn=None):
+    if pn is None:
+        d = os.environ[u"HOME"] + os.sep + u"bin" + os.sep + u"startMongDB.sh"
+    else:
+        d = pn
+
+    p = subprocess.Popen([u"/usr/bin/sh", d], stdout=subprocess.PIPE)
+    logger.debug(u"{}".format(p))
+
+    if p is not None:
+        return p
+    else:
+        return None
 
 def getPIDs(process):
     try:
         pidlist = map(int, check_output([u"pidof", process]).split())
-
     except  CalledProcessError:
         pidlist = []
 
