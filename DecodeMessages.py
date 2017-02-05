@@ -40,6 +40,7 @@ rbs = RabbitSend(configFile=configFile)
 CLEAR_MESSAGES = True
 message_counter = dict()
 
+weather_message = None
 
 def run_cmd(cmd):
     """
@@ -141,7 +142,6 @@ def get_aprs_messages(messages):
 
     return aprs_messages
 
-
 def decode_symbol(sym):
     """
     Lookyp Sysbol
@@ -152,6 +152,37 @@ def decode_symbol(sym):
 
     return symbols[s]
 
+def tail_message(msg):
+
+    global weather_message
+    wm = dict()
+    wmessage = u""
+
+    try:
+        # Begin displaying messages
+        for k, v in sorted(msg.items(), reverse=False):
+            logger.debug(u"{0} : {1}".format(k, v))
+
+            if k in [u"Barometer", u"Barometric Pressure", u"Temperature", u"Humidity", ]:
+                wm[k] = v
+
+        temp = u"{}".format(wm[u"Temperature"]) if u"Temperature" in wm else u" "
+        humidity = u"{}".format(wm[u"Humidity"]) if u"Humidity" in wm else u" "
+        pressure = u"{}".format(wm[u"Barometer"]) if u"Barometer" in wm else wm[u"Barometric Pressure"]
+
+        wmessage = u"{0:2}F {1:2}% {2:6}".format(temp, humidity, pressure)
+        logger.info(u"{}".format(wmessage))
+
+    except KeyError, msg:
+        pass
+
+    if wmessage == u"":
+        return weather_message
+    else:
+        weather_message = wmessage
+
+    return weather_message
+
 
 def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=False):
     """
@@ -159,11 +190,15 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
     :param message:
     :param gm:
     :param ALL_FIELDS:
-    ;param DISPLAY_MESSAGE_COUNTS;
+    ;param DISPLAY_MESSAGE_COUNTS:
     :return:
     """
     global rbs
+    global weather_message
+
     fm = to = mt = None
+
+    wl = list()
 
     try:
         if message is None:
@@ -240,6 +275,7 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                     logger.debug(u"{0} : {1}".format(k1, v1))
             else:
                 logger.debug(u"{0} : {1}".format(k, v))
+
             if ALL_FIELDS or k in gm:
                 if v is not None:
                     logger.debug(u"*** Match : {0} ***".format(v))
@@ -285,9 +321,14 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                 output = u"{}\n{}".format(mt, v)
                 rbs.send_message(output)
 
-        # Finish by sending the Date and Time
-        dtt = datetime.now().strftime(u"%b %d %Y\n%I:%M %p")
-        rbs.send_message(dtt)
+        wmsg = tail_message(message)
+        if wmsg is None:
+            # Finish by sending the Date and Time
+            dtt = datetime.now().strftime(u"%b %d %Y\n%I:%M %p")
+            rbs.send_message(dtt)
+        else:
+            dtt = datetime.now().strftime(u"%b %d  %I:%M %p") + os.linesep + wmsg
+            rbs.send_message(dtt)
 
     except Exception, msg:
         logger.warn(u"%s" % msg)
@@ -1083,7 +1124,7 @@ def loopDecodeMessages(test=False):
                         logger.debug(u"%d : %s" % (f.tell(), lf))
                 else:
                     eofm = eofl[lf][0]
-                    logger.info(u"eofm = %d" % eofm)
+                    logger.debug(u"eofm = %d" % eofm)
                     with open(lf, "rb") as cf:
                         cf.seek(eofm)
                         messages = cf.read()
