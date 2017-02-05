@@ -166,11 +166,12 @@ def tail_message(msg):
             if k in [u"Barometer", u"Barometric Pressure", u"Temperature", u"Humidity", ]:
                 wm[k] = v
 
-        temp = u"{}".format(wm[u"Temperature"]) if u"Temperature" in wm else u"0"
-        humidity = u"{}".format(wm[u"Humidity"]) if u"Humidity" in wm else u"0"
+        temp = u"{}".format(wm[u"Temperature"]) if u"Temperature" in wm else u" "
+        humidity = u"{}".format(wm[u"Humidity"]) if u"Humidity" in wm else u" "
         pressure = u"{}".format(wm[u"Barometer"]) if u"Barometer" in wm else wm[u"Barometric Pressure"]
 
         wmessage = u"{0:2}F {1:2}% {2:6}".format(temp, humidity, pressure)
+        logger.info(u"{}".format(wmessage))
 
     except KeyError, msg:
         pass
