@@ -2,11 +2,11 @@
 # #
 # APRS Symbol Tables and Symbols
 #
+from pymongo import MongoClient
+
 from Logger import *
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
-
-from pymongo import MongoClient
 
 
 if __name__ == u"__main__":
@@ -25,7 +25,6 @@ if __name__ == u"__main__":
 
         cs.append(doc[u"from"])
         logger.info(u"    {}".format(doc[u"from"]))
-
         call_signs.append(cs)
 
     for doc in collection.find({u"To": {u"$exists": u"True"}}):

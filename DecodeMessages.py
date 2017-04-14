@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-__author__ = u"james.morris"
 import os
-import sys, getopt
+import sys
+import getopt
 import time
 import re
 import aprslib
 import hashlib
+import geo_lib
 from datetime import datetime, timedelta
 from subprocess import *
 from dateutil import tz
@@ -15,10 +16,8 @@ from rmq.rmq_send import *
 from pymongo import *
 from GetPid import *
 from aprs_table_and_symbols import *
-import geo_lib
 
 from Logger import *
-
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
@@ -37,10 +36,11 @@ SLEEP_TIME = 10  # 5 minutes times 60 seconds
 configFile = u"." + os.sep + u"rmq" + os.sep + u"rmq_settings.conf"
 logger.info(u"%s" % configFile)
 rbs = RabbitSend(configFile=configFile)
-CLEAR_MESSAGES = True
+CLEAR_MESSAGES = False
 message_counter = dict()
 
 weather_message = None
+
 
 def run_cmd(cmd):
     """
@@ -142,6 +142,7 @@ def get_aprs_messages(messages):
 
     return aprs_messages
 
+
 def decode_symbol(sym):
     """
     Lookyp Sysbol
@@ -152,7 +153,12 @@ def decode_symbol(sym):
 
     return symbols[s]
 
+
 def tail_message(msg):
+    """
+    :param msg:
+    :return:
+    """
 
     global weather_message
     wm = dict()
@@ -161,7 +167,7 @@ def tail_message(msg):
     try:
         # Begin displaying messages
         for k, v in sorted(msg.items(), reverse=False):
-            logger.debug(u"{0} : {1}".format(k, v))
+            logger.info(u"{0} : {1}".format(k, v))
 
             if k in [u"Barometer", u"Barometric Pressure", u"Temperature", u"Humidity", ]:
                 wm[k] = v
@@ -170,11 +176,16 @@ def tail_message(msg):
         humidity = u"{}".format(wm[u"Humidity"]) if u"Humidity" in wm else u" "
         pressure = u"{}".format(wm[u"Barometer"]) if u"Barometer" in wm else wm[u"Barometric Pressure"]
 
+        if humidity is None:
+            humidity = u"N/A"
+        if pressure is None:
+            pressure = u"N/A"
+
         wmessage = u"{0:2}F {1:2}% {2:6}".format(temp, humidity, pressure)
         logger.info(u"{}".format(wmessage))
 
     except KeyError, msg:
-        pass
+        logger.info(u"{}".format(msg))
 
     if wmessage == u"":
         return weather_message
@@ -184,15 +195,51 @@ def tail_message(msg):
     return weather_message
 
 
+def decode_wind_direction(direction):
+    letter_angle = u"YNS"
+    list_angle = list()
+    list_angle.append([0, 11.26, u"N"])
+    list_angle.append([11.25, 33.75, u"NNE"])
+    list_angle.append([33.75, 56.25, u"NE"])
+    list_angle.append([56.25, 78.75, u"ENE"])
+    list_angle.append([78.75, 101.25, u"E"])
+    list_angle.append([101.25, 123.75, u"ESE"])
+    list_angle.append([123.75, 126.26, u"SE"])
+    list_angle.append([146.25, 168.75, u"SSE"])
+    list_angle.append([168.75, 191.25, u"S"])
+    list_angle.append([191.25, 213.75, u"SSW"])
+    list_angle.append([213.75, 236.25, u"SW"])
+    list_angle.append([236.25, 258.75, u"WSW"])
+    list_angle.append([258.75, 281.25, u"W"])
+    list_angle.append([281.25, 303.75, u"WNW"])
+    list_angle.append([303.75, 326.25, u"NW"])
+    list_angle.append([326.25, 348.75, u"NNW"])
+    list_angle.append([348.75, 360, u"N"])
+
+    try:
+
+        for dn in list_angle:
+            if dn[0] < direction < dn[1]:
+                letter_angle = dn[2]
+                logger.debug(u"Found - %4.1f-%4.1f \t %s" % (dn[0], dn[1], dn[2]))
+                break
+            else:
+                logger.debug(u"Nope - %4.1f-%4.1f \t %s" % (dn[0], dn[1], dn[2]))
+    except Exception, msg:
+        logger.error(u"%s" % msg)
+
+    return letter_angle
+
+
 def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=False):
     """
-    Queue Messages and Fields for Display on RPi
     :param message:
     :param gm:
     :param ALL_FIELDS:
-    ;param DISPLAY_MESSAGE_COUNTS:
+    :param DISPLAY_MESSAGE_COUNTS:
     :return:
     """
+
     global rbs
     global weather_message
 
@@ -221,8 +268,8 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
 
         try:
             if u"longitude" in message:
-                logger.debug(u"longitude : %s" % message[u"longitude"])
-                logger.debug(u"latitude : %s" % message[u"latitude"])
+                logger.info(u"longitude : %s" % message[u"longitude"])
+                logger.info(u"latitude : %s" % message[u"latitude"])
                 # longitude : -82.2565
                 # latitude  : 27.8183333333
 
@@ -235,8 +282,8 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                     rbs.send_message(u"Miles : %3.2f\nCompass %3.2f %s" % (gl[0][0], gl[2][1], gl[1][1]))
 
             elif u"Longitude" in message:
-                logger.debug(u"Longitude : %s" % message[u"Longitude"])
-                logger.debug(u"Latitude : %s" % message[u"Latitude"])
+                logger.info(u"Longitude : %s" % message[u"Longitude"])
+                logger.info(u"Latitude : %s" % message[u"Latitude"])
                 # Latitude  : 2831.07N - [0-9]{4}.[0-9]{2}[NS]{1}
                 # Longitude : 08142.92W - [0-9]{5}.[0-9]{2}[WE]
 
@@ -259,12 +306,12 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                   # u"Time", u"ReadingDateTime", u"Zulu Time",
                   # u"symbol", u"symbol_table", u"Alternate Symbol Table",
                   # u"longitude", u"latitude", u"Longitude", u"Latitude",
-                  u"object_name",
+                  # u"object_name",
                   u"Rainfall since midnight", u"Rainfall in the last hour", u"Rainfall in the last 24 hour",
                   # u"Course/Speed", u"altitude", u"course", u"speed",
                   u"Wind Gust", u"Wind Speed PeaK", u"Wind Direction",
                   # u"wx_raw_timestamp",
-                  u"Message_Type",
+                  # u"Message_Type",
                   u"comment"
                   ]
 
@@ -274,15 +321,17 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                 for k1, v1 in v.items():
                     logger.debug(u"{0} : {1}".format(k1, v1))
             else:
-                logger.debug(u"{0} : {1}".format(k, v))
+                logger.info(u"{0} : {1}".format(k, v))
 
             if ALL_FIELDS or k in gm:
                 if v is not None:
                     logger.debug(u"*** Match : {0} ***".format(v))
-                    if isinstance(v, float):
+                    if isinstance(v, float) and v != 0:
                         v = u"%4.2f" % v
-                    elif isinstance(v, int):
+                    elif isinstance(v, int) and v != 0:
                         v = u"%4d" % v
+                    else:
+                        continue
 
                     rbs.send_message(u"%s\n%s" % (k.title(), v))
 
@@ -296,10 +345,12 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
 
             for k, v in sorted(nm.items(), reverse=False):
                 if v is not None:
-                    if isinstance(v, float):
+                    if isinstance(v, float) and v != 0.0:
                         v = u"%4.2f" % v
-                    elif isinstance(v, int):
+                    elif isinstance(v, int) and v != 0:
                         v = u"%4d" % v
+                    else:
+                        continue
 
                     logger.debug(u"%s -- %s" % (k.title(), v))
                     rbs.send_message(u"%s\n%s" % (k.title(), v))
@@ -394,13 +445,13 @@ def log_aprs_lib_message(result):
         try:
             part = result[emix]
             if isinstance(part, (str, unicode)):
-                logger.debug(u"       %s : %s" % (emix, part))
+                logger.info(u"       %s : %s" % (emix, part))
             elif isinstance(part, int):
-                logger.debug(u"       %s : %3d" % (emix, part))
+                logger.info(u"       %s : %3d" % (emix, part))
             elif isinstance(part, float):
-                logger.debug(u"       %s : %3.3f" % (emix, part))
+                logger.info(u"       %s : %3.3f" % (emix, part))
             else:
-                logger.debug(u"       %s : tbd" % emix)
+                logger.info(u"       %s : tbd" % emix)
         except Exception, msg:
             logger.error(u"%s" % msg)
 
@@ -517,8 +568,10 @@ def parse_aprs_fields(fields):
                 elif field[0] == u"c":
                     n = 8
                     fv = int(field[1:])
-                    logger.debug(u"%6d : [ Wind Direction ]" % fv)
-                    fld[u"Wind Direction"] = fv
+                    angle = decode_wind_direction(fv)
+                    logger.debug(u"%s : [ Wind Direction ]" % angle)
+                    fld[u"Wind Direction"] = angle
+
                 elif field[0] == u"s":
                     n = 9
                     fv = int(field[1:])
@@ -581,8 +634,10 @@ def parse_aprs_fields(fields):
 
             n = 21
             m = u"Wind Direction of Wind Speed Peak (0-255)"
+
             msg = u"Wind Direction"
-            fld[msg] = parse_ULTW_Message(fields[2], msg)
+            angle = decode_wind_direction(fields[2])
+            fld[msg] = parse_ULTW_Message(angle, msg)
 
             n = 22
             m = u"Current Outdoor Temp (0_1 deg F increments)"
@@ -1051,7 +1106,7 @@ def decode_aprs_messages(msgs):
                 queue_Message(fields, header=header, footer=footer)
 
             else:
-                # __________________________________________________________________________________
+                # _____________________________________
                 logger.debug(u"No match - %s" % footer)
 
 
@@ -1114,14 +1169,13 @@ def loopDecodeMessages(test=False):
             logFl = get_gqrx_log_files(test=test)
 
             eofl = loadObject(ofn)
-
             for n, lf in enumerate(logFl):
-
                 if lf not in eofl.keys():
                     with open(lf, "rb") as f:
                         messages = f.read()
                         eofl[lf] = (f.tell(), lf)
                         logger.debug(u"%d : %s" % (f.tell(), lf))
+
                 else:
                     eofm = eofl[lf][0]
                     logger.debug(u"eofm = %d" % eofm)
@@ -1139,7 +1193,7 @@ def loopDecodeMessages(test=False):
             time.sleep(SLEEP_TIME)
 
         except Exception, msg:
-            logger.info(u"%s" % msg)
+            logger.debug(u"%s" % msg)
             logFl = get_gqrx_log_files(test=test)
 
 

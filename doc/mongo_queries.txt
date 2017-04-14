@@ -1,0 +1,65 @@
+#
+# MongoDB Queries
+#
+db.getCollection('Weather').find({"Temperature" : {"$exists" : "True"}})
+db.getCollection('Weather').find({"to" : {"$exists" : "true"}})
+
+# Comparisons
+#
+db.getCollection('Weather').find({"Temperature" : {"$gt" : 90}})
+db.getCollection('Weather').find({},{'Temperature':"$exists"}).limit(50).sort({'Temeprature':{"$gt":90}})
+
+# Sorting
+#
+db.getCollection('Weather').find({}).sort({"_id":-1})
+
+# Average
+#
+db.getCollection('Weather').aggregate([{$group : {_id : "$Message_Type", AvgTemperature : {$avg : "$Temperature"}}}])
+
+# Maximum
+#
+db.getCollection('Weather').aggregate([{"$group":{_id:"$From", max_temp : {"$max" : "$Temperature"}}}])
+
+# Maximum Temperature by Message_Type
+#
+
+db.getCollection('Weather').aggregate([{"$group":{_id:"$id", max : {"$max" : "$Barometer"}}}])
+
+# Indexes
+#
+db.profiles.create_index([('From', pymongo.ASCENDING)], unique='False')
+
+# Check
+#
+list(db.profiles.index_information())
+
+# Get Wind Speed Peak and order descending
+#
+db.getCollection('Weather').find({"Wind Speed PeaK": {'$exists' : "True"}}).sort({"Wind Speed PeaK":-1})
+
+# Field Counts
+#
+db.getCollection('Bookmarks').aggregate([{"$group":{_id:"$Path", count : {"$sum":1}}}])
+
+#
+# Python API
+#
+
+# Group via Reducer
+#
+reducer = Code("""function(obj, prev){  prev.count++;} """)
+
+# From
+#
+results = collection.group(key={"From":1}, condition={}, initial={"count":0}, reduce=reducer, finalize=None)
+s = sorted(results, key=lambda result: result["count"], reverse=True)
+for doc in s: print doc;
+
+# To
+#
+results = collection.group(key={"To":1}, condition={}, initial={"count":0}, reduce=reducer, finalize=None)
+s = sorted(results, key=lambda result: result["count"], reverse=True)
+for doc in s: print doc;
+
+
