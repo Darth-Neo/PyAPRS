@@ -1,21 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os
-import sys
 import getopt
-import time
-import re
-import aprslib
 import hashlib
+import aprslib
+import re
 import geo_lib
-from datetime import datetime, timedelta
-from subprocess import *
-from dateutil import tz
-from datetime import date, datetime
-from rmq.rmq_send import *
-from pymongo import *
+from datetime import datetime
+from datetime import timedelta
 from GetPid import *
 from aprs_table_and_symbols import *
+from rmq.rmq_send import *
 
 from Logger import *
 logger = setupLogging(__name__)
@@ -40,6 +34,26 @@ CLEAR_MESSAGES = False
 message_counter = dict()
 
 weather_message = None
+
+letter_angle = u"YNS"
+list_angle = list()
+list_angle.append([0, 11.26, u"N"])
+list_angle.append([11.25, 33.75, u"NNE"])
+list_angle.append([33.75, 56.25, u"NE"])
+list_angle.append([56.25, 78.75, u"ENE"])
+list_angle.append([78.75, 101.25, u"E"])
+list_angle.append([101.25, 123.75, u"ESE"])
+list_angle.append([123.75, 126.26, u"SE"])
+list_angle.append([146.25, 168.75, u"SSE"])
+list_angle.append([168.75, 191.25, u"S"])
+list_angle.append([191.25, 213.75, u"SSW"])
+list_angle.append([213.75, 236.25, u"SW"])
+list_angle.append([236.25, 258.75, u"WSW"])
+list_angle.append([258.75, 281.25, u"W"])
+list_angle.append([281.25, 303.75, u"WNW"])
+list_angle.append([303.75, 326.25, u"NW"])
+list_angle.append([326.25, 348.75, u"NNW"])
+list_angle.append([348.75, 360, u"N"])
 
 
 def run_cmd(cmd):
@@ -167,7 +181,8 @@ def tail_message(msg):
     try:
         # Begin displaying messages
         for k, v in sorted(msg.items(), reverse=False):
-            logger.info(u"{0} : {1}".format(k, v))
+            if not (v is None):
+                logger.debug(u"{0} : {1}".format(k, v))
 
             if k in [u"Barometer", u"Barometric Pressure", u"Temperature", u"Humidity", ]:
                 wm[k] = v
@@ -196,37 +211,34 @@ def tail_message(msg):
 
 
 def decode_wind_direction(direction):
-    letter_angle = u"YNS"
-    list_angle = list()
-    list_angle.append([0, 11.26, u"N"])
-    list_angle.append([11.25, 33.75, u"NNE"])
-    list_angle.append([33.75, 56.25, u"NE"])
-    list_angle.append([56.25, 78.75, u"ENE"])
-    list_angle.append([78.75, 101.25, u"E"])
-    list_angle.append([101.25, 123.75, u"ESE"])
-    list_angle.append([123.75, 126.26, u"SE"])
-    list_angle.append([146.25, 168.75, u"SSE"])
-    list_angle.append([168.75, 191.25, u"S"])
-    list_angle.append([191.25, 213.75, u"SSW"])
-    list_angle.append([213.75, 236.25, u"SW"])
-    list_angle.append([236.25, 258.75, u"WSW"])
-    list_angle.append([258.75, 281.25, u"W"])
-    list_angle.append([281.25, 303.75, u"WNW"])
-    list_angle.append([303.75, 326.25, u"NW"])
-    list_angle.append([326.25, 348.75, u"NNW"])
-    list_angle.append([348.75, 360, u"N"])
+    global letter_angle
+    angle = 0
+
+    logger.info(u"Wind Direction (n) : {} : {}".format(direction, type(direction)))
 
     try:
+        if isinstance(direction, str):
+            d = int(direction)
+        elif isinstance(direction, unicode):
+            d = int(direction)
+        elif isinstance(direction, float):
+            d = int(direction)
+        else:
+            d = direction
 
-        for dn in list_angle:
-            if dn[0] < direction < dn[1]:
-                letter_angle = dn[2]
-                logger.debug(u"Found - %4.1f-%4.1f \t %s" % (dn[0], dn[1], dn[2]))
-                break
-            else:
-                logger.debug(u"Nope - %4.1f-%4.1f \t %s" % (dn[0], dn[1], dn[2]))
+        try:
+            for dn in list_angle:
+                if dn[0] < d < dn[1]:
+                    angle = dn[2]
+                    logger.debug(u"Found - %4.1f-%4.1f \t %s" % (dn[0], dn[1], dn[2]))
+                    break
+
+        except Exception, msg:
+            logger.error(u"%s" % msg)
+
+        logger.info(u"Wind Direction (a) : {} ".format(angle))
     except Exception, msg:
-        logger.error(u"%s" % msg)
+        pass
 
     return letter_angle
 
@@ -321,7 +333,7 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                 for k1, v1 in v.items():
                     logger.debug(u"{0} : {1}".format(k1, v1))
             else:
-                logger.info(u"{0} : {1}".format(k, v))
+                logger.debug(u"{0} : {1}".format(k, v))
 
             if ALL_FIELDS or k in gm:
                 if v is not None:
@@ -521,6 +533,7 @@ def parse_aprs_fields(fields):
     """
     weather = [u"@", u"=", u"_", u"/", u"!"]
     fld = dict()
+    n = 0
     global field_errors
     global field_count
 
@@ -570,7 +583,8 @@ def parse_aprs_fields(fields):
                     fv = int(field[1:])
                     angle = decode_wind_direction(fv)
                     logger.debug(u"%s : [ Wind Direction ]" % angle)
-                    fld[u"Wind Direction"] = angle
+                    fld[msg] = parse_ULTW_Message(angle, msg)
+                    fld[u"---Wind Direction---"] = angle
 
                 elif field[0] == u"s":
                     n = 9
@@ -634,9 +648,9 @@ def parse_aprs_fields(fields):
 
             n = 21
             m = u"Wind Direction of Wind Speed Peak (0-255)"
-
-            msg = u"Wind Direction"
-            angle = decode_wind_direction(fields[2])
+            msg = u"---Wind Direction---"
+            fa = fields[2]
+            angle = decode_wind_direction(fa)
             fld[msg] = parse_ULTW_Message(angle, msg)
 
             n = 22
@@ -673,7 +687,7 @@ def parse_aprs_fields(fields):
 
             n = 29
             m = u"Date (day of year since January 1)"
-            msg = u"Date"
+            # msg = u"Date"
             # fld[msg] = parse_ULTW_Message(fields[10], msg)
 
             n = 30
@@ -842,6 +856,7 @@ def decode_aprs_messages(msgs):
                     fields = parse_aprs_footer(footer, message_bytes)
                     fields.update(header_fields)
                     queue_Message(fields, header=header, footer=footer)
+
                 except Exception, msg:
                     logger.warn(u"1 %s" % msg)
 
@@ -1108,7 +1123,6 @@ def decode_aprs_messages(msgs):
             else:
                 # _____________________________________
                 logger.debug(u"No match - %s" % footer)
-
 
         except Exception, msg:
             logger.error(u"decode_aprs_messages : %s" % msg)
