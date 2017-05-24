@@ -19,7 +19,6 @@ field_errors = 0
 field_count = 0
 
 MongoPersist = False
-
 client = MongoClient(u'mongodb://localhost:27017/')
 database = u"local"
 collection = u"Weather"
@@ -200,7 +199,7 @@ def tail_message(msg):
         logger.info(u"{}".format(wmessage))
 
     except KeyError, msg:
-        logger.info(u"{}".format(msg))
+        logger.debug(u"{}".format(msg))
 
     if wmessage == u"":
         return weather_message
@@ -280,8 +279,8 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
 
         try:
             if u"longitude" in message:
-                logger.info(u"longitude : %s" % message[u"longitude"])
-                logger.info(u"latitude : %s" % message[u"latitude"])
+                logger.debug(u"longitude : %s" % message[u"longitude"])
+                logger.debug(u"latitude : %s" % message[u"latitude"])
                 # longitude : -82.2565
                 # latitude  : 27.8183333333
 
@@ -294,8 +293,8 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                     rbs.send_message(u"Miles : %3.2f\nCompass %3.2f %s" % (gl[0][0], gl[2][1], gl[1][1]))
 
             elif u"Longitude" in message:
-                logger.info(u"Longitude : %s" % message[u"Longitude"])
-                logger.info(u"Latitude : %s" % message[u"Latitude"])
+                logger.debug(u"Longitude : %s" % message[u"Longitude"])
+                logger.debug(u"Latitude : %s" % message[u"Latitude"])
                 # Latitude  : 2831.07N - [0-9]{4}.[0-9]{2}[NS]{1}
                 # Longitude : 08142.92W - [0-9]{5}.[0-9]{2}[WE]
 
