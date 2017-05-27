@@ -5,8 +5,7 @@ import hashlib
 import aprslib
 import re
 import geo_lib
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from GetPid import *
 from aprs_table_and_symbols import *
 from rmq.rmq_send import *
@@ -963,42 +962,54 @@ def decode_aprs_messages(msgs):
 
             # 5 aprslib @
             elif re.match(r"^@.*", footer, re.M | re.I):
-
-                # __________________________________________________________________________________
-                # Complete Weather Format
-                # @220605z2831.07N/08142.92W_000/000g002t100r000p000P000h46b10144.DsVP
-                # @ 220605z 2831.07N / 08142.92W _000/000 g002 t100 r000 p000 P000 h46 b10144 .DsVP.
-                # @ Message
-                # 22 06 05z Zulu Time
-                #  2831.07N Latitude
-                # 08142.92W Longitude
-                # g002      Wind Gust in the last five minutes
-                # t100      Temperature
-                # r000      Rainfall in the last hour
-                # p000      Rainfall in the last 24 hours
-                # P000      Rainfall since midnight
-                # h46       Humidity
-                # b10144    Barometric Pressure
-                try:
-                    logger.info(u"5 Complete Weather Format")
-                    fields = aprslib.parse(aprs_addresses)
-                    log_aprs_lib_message(fields)
+                #           1         2         3         4
+                # 01234567890123456789012345678901234567890123456789
+                # @095148h2835.66N/08118.09WoOrange County ARES
+                if footer[7] == "h" or footer[7] == "z":
+                    fields = dict()
+                    fields["time"] = footer[1:6]
+                    fields["latitude"] = footer[8:16]
+                    fields["longitude"] = footer[17:26]
+                    fields.update(header_fields)
                     queue_Message(fields, header=header, footer=footer)
 
-                except Exception, msg:
+                else:
+
+                    # __________________________________________________________________________________
+                    # Complete Weather Format
+                    # @220605z2831.07N/08142.92W_000/000g002t100r000p000P000h46b10144.DsVP
+                    # @ 220605z 2831.07N / 08142.92W _000/000 g002 t100 r000 p000 P000 h46 b10144 .DsVP.
+                    # @ Message
+                    # 22 06 05z Zulu Time
+                    #  2831.07N Latitude
+                    # 08142.92W Longitude
+                    # g002      Wind Gust in the last five minutes
+                    # t100      Temperature
+                    # r000      Rainfall in the last hour
+                    # p000      Rainfall in the last 24 hours
+                    # P000      Rainfall since midnight
+                    # h46       Humidity
+                    # b10144    Barometric Pressure
                     try:
-                        logger.debug(u"5b Complete Weather Format")
-                        message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
-                        fields = parse_aprs_footer(footer, message_bytes)
-                        fields.update(header_fields)
+                        logger.info(u"5 Complete Weather Format")
+                        fields = aprslib.parse(aprs_addresses)
+                        log_aprs_lib_message(fields)
                         queue_Message(fields, header=header, footer=footer)
 
                     except Exception, msg:
-                        logger.debug(u"5c Complete Weather Format")
-                        message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
-                        fields = parse_aprs_footer(footer, message_bytes)
-                        fields.update(header_fields)
-                        queue_Message(fields, header=header, footer=footer)
+                        try:
+                            logger.debug(u"5b Complete Weather Format")
+                            message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
+                            fields = parse_aprs_footer(footer, message_bytes)
+                            fields.update(header_fields)
+                            queue_Message(fields, header=header, footer=footer)
+
+                        except Exception, msg:
+                            logger.debug(u"5c Complete Weather Format")
+                            message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
+                            fields = parse_aprs_footer(footer, message_bytes)
+                            fields.update(header_fields)
+                            queue_Message(fields, header=header, footer=footer)
 
             # 6 aprslib /
             elif re.match(r"^/.*", footer, re.M | re.I):
