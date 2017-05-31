@@ -228,13 +228,13 @@ def decode_wind_direction(direction):
             for dn in list_angle:
                 if dn[0] < d < dn[1]:
                     angle = dn[2]
-                    logger.debug(u"Found - %4.1f-%4.1f \t %s" % (dn[0], dn[1], dn[2]))
+                    logger.info(u"Found - %4.1f-%4.1f \t %s" % (dn[0], dn[1], dn[2]))
                     break
 
         except Exception, msg:
             logger.error(u"%s" % msg)
 
-        logger.info(u"Wind Direction (a) : {} ".format(angle))
+        logger.info(u"Wind Direction (angle) : {} ".format(angle))
     except Exception, msg:
         pass
 
@@ -547,6 +547,7 @@ def parse_aprs_fields(fields):
                     n = 1
                     logger.debug(u"%6d : [ Temperature ]" % int(field[1:]))
                     fld[u"Temperature"] = int(field[1:])
+
                 elif field[0] == u"h":
                     n = 2
                     logger.debug(u"%6d : [ Humidity ]" % int(field[1:]))
@@ -558,11 +559,13 @@ def parse_aprs_fields(fields):
                         fv = int(field[1:]) * 0.01
                         logger.debug(u"%6.1f : [ Rainfall in the last hour ]" % fv)
                         fld[u"Rainfall in the last hour"] = fv
+
                 elif field[0] == u"P":
                     n = 5
                     fv = int(field[1:]) * 0.01
                     logger.debug(u"%6.1f : [ Rainfall in the last 24 hour]" % fv)
                     fld[u"Rainfall in the last 24 hour"] = fv
+
                 elif field[0] == u"p":
                     n = 6
                     fv = int(field[1:]) * 0.01
@@ -589,6 +592,7 @@ def parse_aprs_fields(fields):
                     fv = int(field[1:])
                     logger.debug(u"%6d : [ Sustained Wind Speed ]" % fv)
                     fld[u"Sustained wind speed"] = fv
+
                 elif field[0] == u"g":
                     n = 10
                     fv = int(field[1:])
@@ -599,6 +603,7 @@ def parse_aprs_fields(fields):
                     n = 11
                     logger.debug(u"%6s : [ Latitude ]" % field)
                     fld[u"Latitude"] = field
+
                 elif field[-1:] in (u"E", u"W"):
                     n = 12
                     logger.debug(u"%6s : [ Longitude ]" % field)
@@ -613,6 +618,7 @@ def parse_aprs_fields(fields):
                     n = 15
                     logger.debug(u"%6s : [ Alternate Symbol Table ]" % field[0])
                     fld[u"Alternate Symbol Table"] = field[0]
+
                 elif field[0] in (u"v",):
                     n = 16
                     logger.debug(u"%6s : [ Vehicle ] " % field[0])
@@ -622,6 +628,7 @@ def parse_aprs_fields(fields):
                     n = 17
                     logger.debug(u"%6s : [ Course/Speed ] " % field[0])
                     fld[u"Course/Speed"] = field[0]
+
                 else:
                     n = 18
                     logger.debug(u"%6s : [ TBD ]" % field)
@@ -962,16 +969,52 @@ def decode_aprs_messages(msgs):
 
             # 5 aprslib @
             elif re.match(r"^@.*", footer, re.M | re.I):
-                #          1         2         3         4
-                # 1234567890123456789012345678901234567890123456789
-                # @311706z2815.27NS08139.28W_PHG74606/W3,FLn Davenport, Florida
-                # @311657z2752.80NS08148.94W_PHG75506/W3,FLn-N Bartow, Florida
-                # @095148h2835.66N/08118.09WoOrange County ARES
-                if footer[15] == "N" and footer[25] == "W":
-                    fields = dict()
-                    fields["time"] = footer[1:6]
-                    fields["latitude"] = footer[8:16]
-                    fields["longitude"] = footer[17:26]
+                fields = dict()
+                fields[u"Message_Type"] = u"@"
+
+                #          1           2          3         4         5         6
+                # 1234567890123456 7 890123456 7890123456789012345678901234567890123456789
+                # @170008z2831.07N / 08142.92W _000/000g002t094r000p000P000h49b10150.DsVP
+                # @311706z2815.27N S 08139.28W _PHG74606/W3,FLn Davenport, Florida
+                # @311657z2752.80N S 08148.94W _PHG75506/W3,FLn-N Bartow, Florida
+                # @095148h2835.66N / 08118.09W oOrange County ARES
+                if footer[15] == u"N" and footer[25] == u"W":
+
+                    fields[u"Time"] = footer[1:6]
+                    fields[u"Latitude"] = footer[8:16]
+                    fields[u"Longitude"] = footer[17:26]
+
+                    # Wind Gust
+                    if footer[34] == u"g":
+                        fields[u"Wind Gust"] = footer[35:38]
+
+                    # Temperature
+                    if footer[38] == u"t":
+                        if footer[39] == u"0":
+                            fields[u"Temperature"] = footer[40:42]
+                        else:
+                            fields[u"Temperature"] = footer[39:42]
+
+                    # Rain in the last hour
+                    if footer[42] == u"r":
+                        fields[u"Rainfall in the last hour"] = footer[43:45] + u"." + footer[45]
+
+                    # Rain in the last 24 hours
+                    if footer[46] == u"p":
+                        fields[u"Rainfall in the last 24 hour"] = footer[47:48] + u"." + footer[48:50]
+
+                    # Rain since midnight
+                    if footer[50] == u"P":
+                        fields[u"Rainfall since midnight"] = footer[51:52] + u"." + footer[52:54]
+
+                    # Humidity
+                    if footer[54] == u"h":
+                        fields[u"Humidity"] = footer[55:57]
+
+                    # Barometer
+                    if footer[57] == u"b":
+                        fields[u"Barometer"] = footer[58:62] + u"." + footer[62]
+
                     fields.update(header_fields)
                     queue_Message(fields, header=header, footer=footer)
 
