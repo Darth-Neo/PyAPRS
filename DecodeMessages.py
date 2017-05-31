@@ -962,10 +962,12 @@ def decode_aprs_messages(msgs):
 
             # 5 aprslib @
             elif re.match(r"^@.*", footer, re.M | re.I):
-                #           1         2         3         4
-                # 01234567890123456789012345678901234567890123456789
+                #          1         2         3         4
+                # 1234567890123456789012345678901234567890123456789
+                # @311706z2815.27NS08139.28W_PHG74606/W3,FLn Davenport, Florida
+                # @311657z2752.80NS08148.94W_PHG75506/W3,FLn-N Bartow, Florida
                 # @095148h2835.66N/08118.09WoOrange County ARES
-                if footer[7] == "h" or footer[7] == "z":
+                if footer[15] == "N" and footer[25] == "W":
                     fields = dict()
                     fields["time"] = footer[1:6]
                     fields["latitude"] = footer[8:16]
@@ -1237,6 +1239,7 @@ if __name__ == u"__main__":
 
         if process_found is False:
             logger.error(u"Need to start %s first!" % fpn)
+            logger.info(u"Did you start GQRX from gogqrx.sh?")
             sys.exit(1)
 
     try:

@@ -270,6 +270,7 @@ message_types[u">"] = u"Snafu"
 message_types[u":"] = u"Object Report Format"
 message_types[u"`"] = u"MicE Format"
 
+
 def findSymbolName(symbol_table, symbol):
     vl = None
     try:
