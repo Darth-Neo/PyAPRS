@@ -3,19 +3,17 @@
 import getopt
 import hashlib
 import aprslib
-import re
 import geo_lib
-from datetime import datetime, timedelta
 from GetPid import *
-from aprs_table_and_symbols import *
+from ListAngle import *
+from ParseMessages import *
+# from aprs_table_and_symbols import *
 from rmq.rmq_send import *
 
 from Logger import *
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
-field_errors = 0
-field_count = 0
 
 MongoPersist = False
 client = MongoClient(u'mongodb://localhost:27017/')
@@ -31,73 +29,107 @@ rbs = RabbitSend(configFile=configFile)
 CLEAR_MESSAGES = False
 message_counter = dict()
 
-weather_message = None
-
-letter_angle = u"YNS"
-list_angle = list()
-list_angle.append([0, 11.26, u"N"])
-list_angle.append([11.25, 33.75, u"NNE"])
-list_angle.append([33.75, 56.25, u"NE"])
-list_angle.append([56.25, 78.75, u"ENE"])
-list_angle.append([78.75, 101.25, u"E"])
-list_angle.append([101.25, 123.75, u"ESE"])
-list_angle.append([123.75, 126.26, u"SE"])
-list_angle.append([146.25, 168.75, u"SSE"])
-list_angle.append([168.75, 191.25, u"S"])
-list_angle.append([191.25, 213.75, u"SSW"])
-list_angle.append([213.75, 236.25, u"SW"])
-list_angle.append([236.25, 258.75, u"WSW"])
-list_angle.append([258.75, 281.25, u"W"])
-list_angle.append([281.25, 303.75, u"WNW"])
-list_angle.append([303.75, 326.25, u"NW"])
-list_angle.append([326.25, 348.75, u"NNW"])
-list_angle.append([348.75, 360, u"N"])
+if False:
+    def run_cmd(cmd):
+        """
+        Executee a command
+        :param cmd:
+        :return:
+        """
+        p = Popen(cmd, shell=True, stdout=PIPE)
+        output = p.communicate()[0]
+        return output
 
 
-def run_cmd(cmd):
-    """
-    Executee a command
-    :param cmd:
-    :return:
-    """
-    p = Popen(cmd, shell=True, stdout=PIPE)
-    output = p.communicate()[0]
-    return output
+    def get_CommandLine_Options(av):
+        """
+        Get Options from the command line
+        :param av:
+        :return:
+        """
+        program = u""
+        opts = u""
+        inputfile = u""
+        outputfile = u""
+
+        try:
+            program = os.path.basename(av[0])
+            opts, args = getopt.getopt(av, u"hi:o:", [u"ifile=", u"ofile="])
+
+        except getopt.GetoptError, m:
+            logger.error(u"%s" % m)
+
+        for opt, arg in opts:
+            if opt == u'-h':
+                logger.debug(u"%s -i <inputfile> -o <outputfile>" % program)
+                sys.exit()
+
+            elif opt in (u"-i", u"--ifile"):
+                inputfile = arg
+
+            elif opt in (u"-o", u"--ofile"):
+                outputfile = arg
+
+        logger.debug(u"Input file is %s" % inputfile)
+        logger.debug(u"'Output file is %s" % outputfile)
+
+        return program, inputfile, outputfile
 
 
-def get_CommandLine_Options(av):
-    """
-    Get Options from the command line
-    :param av:
-    :return:
-    """
-    program = u""
-    opts = u""
-    inputfile = u""
-    outputfile = u""
+    def __decode_messages(test=True):
+        """
+        Decode Messages
+        :param test:
+        :return:
+        """
 
-    try:
-        program = os.path.basename(av[0])
-        opts, args = getopt.getopt(av, u"hi:o:", [u"ifile=", u"ofile="])
+        try:
+            logFl = get_gqrx_log_files(test=test)
 
-    except getopt.GetoptError, m:
-        logger.error(u"%s" % m)
+            for lf in logFl:
+                logger.info(u"Reading : %s" % lf)
+                with open(lf, "rb") as f:
+                    messages = f.read()
 
-    for opt, arg in opts:
-        if opt == u'-h':
-            logger.debug(u"%s -i <inputfile> -o <outputfile>" % program)
-            sys.exit()
+                msgs = get_aprs_messages(messages)
+                mt = decode_aprs_messages(msgs)
 
-        elif opt in (u"-i", u"--ifile"):
-            inputfile = arg
+                mtt = mt.items()
+                mts = sorted(mtt, key=lambda mn: mn[1], reverse=True)
 
-        elif opt in (u"-o", u"--ofile"):
-            outputfile = arg
+                mc = len(msgs)
+                logger.info(u"Message Type Counts :  %4d " % mc)
 
-    logger.debug(u"Input file is %s" % inputfile)
-    logger.debug(u"'Output file is %s" % outputfile)
+                output = u"Top Ten : "
+                for key, value in mts[:10]:
+                    output += u"%s[%s] " % (key, value)
 
-    return program, inputfile, outputfile
+                logger.info(u"%s" % output)
+
+        except KeyboardInterrupt:
+            logger.info(u"Bye ")
+
+
+def log_aprs_message(result):
+        """
+        Logs eMic messages that have special decoding needs
+        :param result:
+        :return:
+        """
+
+        for n, emix in enumerate(result):
+            try:
+                part = result[emix]
+                if isinstance(part, (str, unicode)):
+                    logger.info(u"       %s : %s" % (emix, part))
+                elif isinstance(part, int):
+                    logger.info(u"       %s : %3d" % (emix, part))
+                elif isinstance(part, float):
+                    logger.info(u"       %s : %3.3f" % (emix, part))
+                else:
+                    logger.info(u"       %s : tbd" % emix)
+            except Exception, msg:
+                logger.error(u"%s" % msg)
 
 
 def get_gqrx_log_files(test=False):
@@ -155,93 +187,7 @@ def get_aprs_messages(messages):
     return aprs_messages
 
 
-def decode_symbol(sym):
-    """
-    Lookyp Sysbol
-    :param sym:
-    :return:
-    """
-    s = sym.title()
-
-    return symbols[s]
-
-
-def tail_message(msg):
-    """
-    :param msg:
-    :return:
-    """
-
-    global weather_message
-    wm = dict()
-    wmessage = u""
-
-    try:
-        # Begin displaying messages
-        for k, v in sorted(msg.items(), reverse=False):
-            if not (v is None):
-                logger.debug(u"{0} : {1}".format(k, v))
-
-            if k in [u"Barometer", u"Barometric Pressure", u"Temperature", u"Humidity", ]:
-                wm[k] = v
-
-        temp = u"{}".format(wm[u"Temperature"]) if u"Temperature" in wm else u" "
-        humidity = u"{}".format(wm[u"Humidity"]) if u"Humidity" in wm else u" "
-        pressure = u"{}".format(wm[u"Barometer"]) if u"Barometer" in wm else wm[u"Barometric Pressure"]
-
-        if humidity is None:
-            humidity = u"N/A"
-        if pressure is None:
-            pressure = u"N/A"
-
-        wmessage = u"{0:2}F {1:2}% {2:6}".format(temp, humidity, pressure)
-        logger.info(u"{}".format(wmessage))
-
-    except KeyError, msg:
-        logger.debug(u"{}".format(msg))
-
-    if wmessage == u"":
-        return weather_message
-    else:
-        weather_message = wmessage
-
-    return weather_message
-
-
-def decode_wind_direction(direction):
-    global letter_angle
-    angle = 0
-
-    logger.info(u"Wind Direction (n) : {} : {}".format(direction, type(direction)))
-
-    try:
-        if isinstance(direction, str):
-            d = int(direction)
-        elif isinstance(direction, unicode):
-            d = int(direction)
-        elif isinstance(direction, float):
-            d = int(direction)
-        else:
-            d = direction
-
-        try:
-            for dn in list_angle:
-                if dn[0] < d < dn[1]:
-                    angle = dn[2]
-                    logger.info(u"Found - %4.1f-%4.1f \t %s" % (dn[0], dn[1], dn[2]))
-                    break
-
-        except Exception, msg:
-            logger.error(u"%s" % msg)
-
-        logger.info(u"Wind Direction (angle) : {} ".format(angle))
-    except Exception, msg:
-        pass
-
-    return letter_angle
-
-
-def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=False):
+def prepare_display(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=False):
     """
     :param message:
     :param gm:
@@ -251,7 +197,6 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
     """
 
     global rbs
-    global weather_message
 
     fm = to = mt = None
 
@@ -280,22 +225,18 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
             if u"longitude" in message:
                 logger.debug(u"longitude : %s" % message[u"longitude"])
                 logger.debug(u"latitude : %s" % message[u"latitude"])
-                # longitude : -82.2565
-                # latitude  : 27.8183333333
 
                 lat = abs(message.pop(u"latitude", None))
                 lon = abs(message.pop(u"longitude", None))
                 gl = geo_lib.calculateFromHome(lat, lon, display=True)
                 if gl is not None:
-                    logger.info(u"Miles   : %3.2f" % (gl[0][0]))
-                    logger.info(u"Compass : %3.2f %s" % (gl[2][1], gl[1][1]))
+                    logger.debug(u"Miles   : %3.2f" % (gl[0][0]))
+                    logger.debug(u"Compass : %3.2f %s" % (gl[2][1], gl[1][1]))
                     rbs.send_message(u"Miles : %3.2f\nCompass %3.2f %s" % (gl[0][0], gl[2][1], gl[1][1]))
 
             elif u"Longitude" in message:
                 logger.debug(u"Longitude : %s" % message[u"Longitude"])
                 logger.debug(u"Latitude : %s" % message[u"Latitude"])
-                # Latitude  : 2831.07N - [0-9]{4}.[0-9]{2}[NS]{1}
-                # Longitude : 08142.92W - [0-9]{5}.[0-9]{2}[WE]
 
                 if re.match(r"[0-9]{4}.[0-9]{2}[NS]", message[u"Latitude"], re.M | re.I) and \
                         re.match(r"[0-9]{5}.[0-9]{2}[WE]", message[u"Longitude"], re.M | re.I):
@@ -304,8 +245,8 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                     lon = message.pop(u"Longitude", None)
                     gl = geo_lib.calculateFromHome(lat, lon, display=True)
                     if gl is not None:
-                        logger.info(u"Miles   : %3.2f" % (gl[0][0]))
-                        logger.info(u"Compass : %3.2f %s" % (gl[2][1], gl[1][1]))
+                        logger.debug(u"Miles   : %3.2f" % (gl[0][0]))
+                        logger.debug(u"Compass : %3.2f %s" % (gl[2][1], gl[1][1]))
                         rbs.send_message(u"Miles : %3.2f\nCompass %3.2f %s" % (gl[0][0], gl[2][1], gl[1][1]))
         except Exception, msg:
             logger.debug(u"%s" % msg)
@@ -382,7 +323,7 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
                 output = u"{}\n{}".format(mt, v)
                 rbs.send_message(output)
 
-        wmsg = tail_message(message)
+        wmsg = parse_message(message)
         if wmsg is None:
             # Finish by sending the Date and Time
             dtt = datetime.now().strftime(u"%b %d %Y\n%I:%M %p")
@@ -395,7 +336,7 @@ def display_Message(message, gm=None, ALL_FIELDS=False, DISPLAY_MESSAGE_COUNTS=F
         logger.warn(u"%s" % msg)
 
 
-def queue_Message(message, header=None, footer=None, hash=False):
+def queue_display(message, header=None, footer=None, hash=False):
     """
     Queue up messages via RabbitMQ
     :param message:
@@ -412,10 +353,10 @@ def queue_Message(message, header=None, footer=None, hash=False):
     db = client[database]
     c = db[collection]
 
-    logger.info(u"_____________________________________________________________________________")
+    logger.debug(u"_____________________________________________________________________________")
 
     if CLEAR_DB is True:
-        logger.info(u"Reset MongoDB")
+        logger.debug(u"Reset MongoDB")
         c.remove()
         CLEAR_DB = False
 
@@ -441,362 +382,7 @@ def queue_Message(message, header=None, footer=None, hash=False):
 
     c.insert_one(message)
 
-    display_Message(message)
-
-
-def log_aprs_lib_message(result):
-    """
-    Logs eMic messages that have special decoding needs
-    :param result:
-    :return:
-    """
-
-    for n, emix in enumerate(result):
-        try:
-            part = result[emix]
-            if isinstance(part, (str, unicode)):
-                logger.info(u"       %s : %s" % (emix, part))
-            elif isinstance(part, int):
-                logger.info(u"       %s : %3d" % (emix, part))
-            elif isinstance(part, float):
-                logger.info(u"       %s : %3.3f" % (emix, part))
-            else:
-                logger.info(u"       %s : tbd" % emix)
-        except Exception, msg:
-            logger.error(u"%s" % msg)
-
-
-def parse_ULTW_Message(field, msg, scale=1.0):
-    u"""
-    function to convert hex to the proper value
-    :param field:
-    :param msg:
-    :param scale:
-    :return:
-    """
-    fld = None
-    try:
-        # if field <> u"----":
-        if re.match(r"^[0-9A-Za-z]{4}", field, re.M | re.I):
-            fld = int(u"0x" + field, 16) * scale
-            logger.debug(u"%7.2f : %s" % (fld, msg))
-    except Exception, msg:
-        logger.warn(u"%s : %s" % (msg, field))
-
-    return fld
-
-
-def parse_Zulu_EDT(pt):
-    """
-    Convert time from Zulu time
-    :param pt:
-    :return:
-    """
-    try:
-        if True:
-            t = int(u"0x" + pt, 16)
-        else:
-            t = int(pt)
-
-        hours = t / 60
-        minutes = t % 60
-
-        zulu = u"%2d:%2d" % (hours, minutes)
-
-    except Exception, msg:
-        logger.warn(u"%s" % msg)
-        return pt
-
-    return zulu
-
-
-def parse_Days(days):
-    """
-    Parse out data from string
-    :param days:
-    :return:
-    """
-    year = int(datetime.now().strftime(u'%Y'))
-    n = datetime(day=1, month=1, year=year)
-    EndDate = n + timedelta(days=days)
-
-    return EndDate.strftime(u'%Y/%m/%d')
-
-
-def parse_aprs_fields(fields):
-    """
-    Create a dict of decoded fields
-    :param fields:
-    :return:
-    """
-    weather = [u"@", u"=", u"_", u"/", u"!"]
-    fld = dict()
-    n = 0
-    global field_errors
-    global field_count
-
-    # Weather Messages
-    if fields[0] in weather:
-        fld[u"Message_Type"] = fields[0]
-        field_count += len(fields)
-        for n, field in enumerate(fields[1:]):
-            # logger.debug(u"%03d : %s" % (n, field))
-
-            try:
-                if field[0] == u"t":
-                    n = 1
-                    logger.debug(u"%6d : [ Temperature ]" % int(field[1:]))
-                    fld[u"Temperature"] = int(field[1:])
-
-                elif field[0] == u"h":
-                    n = 2
-                    logger.debug(u"%6d : [ Humidity ]" % int(field[1:]))
-                    fld[u"Humidity"] = int(field[1:])
-
-                elif field[0] == u"r":
-                    n = 4
-                    if len(field[1:]) > 2:
-                        fv = int(field[1:]) * 0.01
-                        logger.debug(u"%6.1f : [ Rainfall in the last hour ]" % fv)
-                        fld[u"Rainfall in the last hour"] = fv
-
-                elif field[0] == u"P":
-                    n = 5
-                    fv = int(field[1:]) * 0.01
-                    logger.debug(u"%6.1f : [ Rainfall in the last 24 hour]" % fv)
-                    fld[u"Rainfall in the last 24 hour"] = fv
-
-                elif field[0] == u"p":
-                    n = 6
-                    fv = int(field[1:]) * 0.01
-                    logger.debug(u"%6.1f : [ Rainfall since midnight ]" % fv)
-                    fld[u"Rainfall since midnight"] = fv
-
-                elif field[0] == u"b":
-                    n = 7
-                    fv = float(field[1:]) * 0.1
-                    logger.debug(u"%6.1f : [ Barometric Pressure] " % fv)
-                    # fld[u"Barometric Pressure"] = fv
-                    fld[u"Barometer"] = fv
-
-                elif field[0] == u"c":
-                    n = 8
-                    fv = int(field[1:])
-                    angle = decode_wind_direction(fv)
-                    logger.debug(u"%s : [ Wind Direction ]" % angle)
-                    fld[msg] = parse_ULTW_Message(angle, msg)
-                    fld[u"---Wind Direction---"] = angle
-
-                elif field[0] == u"s":
-                    n = 9
-                    fv = int(field[1:])
-                    logger.debug(u"%6d : [ Sustained Wind Speed ]" % fv)
-                    fld[u"Sustained wind speed"] = fv
-
-                elif field[0] == u"g":
-                    n = 10
-                    fv = int(field[1:])
-                    logger.debug(u"%6d : [ Wind Gust]" % fv)
-                    fld[u"Wind Gust"] = fv
-
-                elif field[-1:] in (u"N", u"S"):  # and len(field) > 2:
-                    n = 11
-                    logger.debug(u"%6s : [ Latitude ]" % field)
-                    fld[u"Latitude"] = field
-
-                elif field[-1:] in (u"E", u"W"):
-                    n = 12
-                    logger.debug(u"%6s : [ Longitude ]" % field)
-                    fld[u"Longitude"] = field
-
-                elif field[-1:] in (u"z",):
-                    n = 14
-                    zt = u"%s:%s:%s" % (field[:2], field[2:4], field[4:6])
-                    fld[u"Zulu Time"] = zt
-
-                elif field[0] in (u"\\", u"/",):
-                    n = 15
-                    logger.debug(u"%6s : [ Alternate Symbol Table ]" % field[0])
-                    fld[u"Alternate Symbol Table"] = field[0]
-
-                elif field[0] in (u"v",):
-                    n = 16
-                    logger.debug(u"%6s : [ Vehicle ] " % field[0])
-                    fld[u"Vehicle"] = field[0]
-
-                elif field[3] in (u"/",):
-                    n = 17
-                    logger.debug(u"%6s : [ Course/Speed ] " % field[0])
-                    fld[u"Course/Speed"] = field[0]
-
-                else:
-                    n = 18
-                    logger.debug(u"%6s : [ TBD ]" % field)
-                    fld[u"TBD"] = field[0]
-
-            except Exception, msg:
-                logger.debug(u"%s[%d] : %s " % (field, n, msg))
-                field_errors += 1
-        return fld
-
-    # ULTW Messages
-    elif fields[0][:5] == u"$ULTW":
-        # $ULTW 0000 0000 01FF 0004 27C7 0002 CCD3 0001 026E 003A 050F 0004 0000
-        fld[u"Message_Type"] = u"ULTW"
-        field_count += len(fields)
-
-        try:
-            n = 20
-            m = u"Wind Speed Peak over last 5 min (0_1 kph increments)"
-            msg = u"Wind Speed PeaK"
-            fld[msg] = parse_ULTW_Message(fields[1], msg, scale=0.1)
-
-            n = 21
-            m = u"Wind Direction of Wind Speed Peak (0-255)"
-            msg = u"---Wind Direction---"
-            fa = fields[2]
-            angle = decode_wind_direction(fa)
-            fld[msg] = parse_ULTW_Message(angle, msg)
-
-            n = 22
-            m = u"Current Outdoor Temp (0_1 deg F increments)"
-            msg = u"Temperature"
-            fld[msg] = parse_ULTW_Message(fields[3], msg, scale=0.1)
-
-            n = 23
-            msg = u"Rain Long Term Total (0_01 in increments)"
-            # fld[msg] = parse_ULTW_Message(fields[4], msg, scale=0.01)
-
-            n = 24
-            m = u"Current Barometer (0_1 mbar increments)"
-            msg = u"Barometer"
-            fld[msg] = parse_ULTW_Message(fields[5], msg, scale=0.1)
-
-            n = 25
-            # m = u"Barometer Delta Value(0_1 mbar increments)"
-            # msg = u"Barometer Delta"
-            # fld[msg] = parse_ULTW_Message(fields[6], msg, scale=0.1)
-
-            n = 26
-            # msg = u"Barometer Corr Factor(LSW)"
-            # fld[msg] = parse_ULTW_Message(fields[7], msg)
-
-            n = 27
-            # msg = u"Barometer Corr Factor(MSW)"
-            # fld[msg] = parse_ULTW_Message(fields[8], msg)
-
-            n = 28
-            m = u"Current Outdoor Humidity (0_1 increments)"
-            msg = u"Humidity"
-            fld[msg] = parse_ULTW_Message(fields[9], msg, scale=0.1)
-
-            n = 29
-            m = u"Date (day of year since January 1)"
-            # msg = u"Date"
-            # fld[msg] = parse_ULTW_Message(fields[10], msg)
-
-            n = 30
-            msg2 = u"Zulu Time"
-            pzt = parse_Zulu_EDT(fields[11])
-            fld[msg2] = pzt
-            m = u"Time (minute of day)"
-            msg = u"Time"
-            fld[msg] = parse_ULTW_Message(fields[11], msg)
-
-            n = 31
-            msg = u"Today's Rain Total (0_01 inch increments)"
-            # fld[msg] = parse_ULTW_Message(fields[12], msg, scale=0.01)
-
-            n = 32
-            msg = u"Minute Wind Speed Average (0_1kph increments)"
-            # fld[msg] = parse_ULTW_Message(fields[13], msg, scale=0.1)
-
-            field_count += len(fld)
-
-            return fld
-
-        except KeyError, msg:
-            logger.debug(u"$ULTW[%d] Error : %s" % (n, msg))
-            field_errors += 1
-
-    # Unknown Message
-    else:
-        logger.debug(u"Unknown")
-        return None
-
-
-def parse_aprs_header(header, footer, n=0):
-    """
-    Parse APRS Headers
-    :param header:
-    :param footer:
-    :param n:
-    :return:
-    """
-    header_fields = None
-    aprs_addresses = None
-
-    try:
-        # fm WC4PEM-10 to APMI06-0 via WC4PEM-14,WIDE2-1 UI  pid=F0
-        addresses = header.split(u" ")
-        fm = addresses[2]
-        to = addresses[4]
-        path = addresses[6]
-
-        if path is None or not (len(path) > 1):
-            via = addresses[5]
-            logger.error(u"via is {0!r}".format(via))
-
-        # M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2
-        aprs_addresses = u"{0}>{1},{2}:{3}".format(fm, to, path, footer)
-        message = u"{0!r} ->{1!r}-> {2!r}".format(fm, path, to)
-        logger.info(message)
-
-        logger.debug(u"%3d [%s]" % (n, header[10:]))
-        logger.debug(u"    [%s]" % footer)
-
-        header_fields = {u"From": fm, u"To": to, u"Path": path}
-    except Exception, msg:
-        logger.error(u"%s" % msg)
-
-    return header_fields, aprs_addresses
-
-
-def parse_aprs_footer(footer, msg_bytes):
-    """
-    Parse APRS Footer
-    :param footer:
-    :param msg_bytes:
-    :return:
-    """
-    n = y = x = 0
-    fields = list()
-    logger.debug(u"%s" % footer)
-    ml = len(footer)
-
-    try:
-        while True:
-            y += msg_bytes[n]
-            logger.debug(u"%d : %d" % (x, y))
-            if msg_bytes[n] == 0:
-                field = footer[x:]
-                fields.append(field)
-                break
-            else:
-                field = footer[x:y]
-                fields.append(field)
-            # logger.debug(u"Field %d : %s" % (n, field))
-            x = y
-            n += 1
-            if x >= ml:
-                break
-
-    except Exception, em:
-        logger.error(u"%s - %s[%d:%d]" % (em, footer, x, y))
-
-    fields = parse_aprs_fields(fields)
-
-    return fields
+    prepare_display(message)
 
 
 # Decode all messages
@@ -806,8 +392,6 @@ def decode_aprs_messages(msgs):
     :param msgs:
     :return:
     """
-    global field_errors
-    global message_counter
 
     for n, message in enumerate(msgs):
 
@@ -827,9 +411,9 @@ def decode_aprs_messages(msgs):
                 message_counter[footer[0]] = 1
 
             if re.match(r"^ *[0-9]+:[0-9]+:[0-9]+.*", header, re.M | re.I):
-                logger.debug(u"1 H.%3d PF    : %s " % (n, header))
+                logger.info(u"1 H.%3d PF    : %s " % (n, header))
 
-                if False:
+                if logger.getEffectiveLevel() == DEBUG:
                     m = header.split(u" ")
                     for x in m:
                         logger.debug(u"H.%3d.%s" % (n, x))
@@ -856,11 +440,14 @@ def decode_aprs_messages(msgs):
                 Field #13, 0000 = 1 Minute Wind Speed Average (reported in 0.1kph increments)
                 """
                 try:
-                    logger.info(u"1 Ultimeter 2000")
+                    logger.debug(u"1 Ultimeter 2000")
                     message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
-                    fields.update(header_fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    if fields is not None:
+                        fields[u"Message_Type"] = u"$ULTW"
+                        fields.update(header_fields)
+                        log_aprs_message(fields)
+                        queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.warn(u"1 %s" % msg)
@@ -884,27 +471,48 @@ def decode_aprs_messages(msgs):
                 # b1016 Barometric Pressure
                 # 5     APRS Software
                 # wDAV  WX Unit -  WinAPRS
+                #
+                #           1           2            3           4          5         6
+                # 123456789 0123 4567 8901 2345 6789 0123 4567 890 123456 78901234567890123456789
+                # _05311550 c359 s000 g000 t086 r000 p086 P000 h64 b10160 tU2k
+                # _05312040 c359 s000 g000 t075 r000 p086 P035 h99 b10182 tU2k
+                # _{1}\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.*
+                # 1 8 c 3 s 3 g 3 t 3 r 3 p 3 P 3 h 2 b 5
                 try:
-                    logger.info(u"3a Raw Weather Report")
+                    logger.info(u"2a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
-                    log_aprs_lib_message(fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    if fields is not None:
+                        fields[u"Message_Type"] = u"_"
+                        fields.update(header_fields)
+                        nf = {k.title(): v for k, v in fields[u"weather"].items()}
+                        del fields[u"weather"]
+                        nfa = {k.title(): v for k, v in nf.items()}
+                        log_aprs_message(nfa)
+                        queue_display(nfa, header=header, footer=footer)
 
                 except Exception, msg:
                     try:
                         # MDHM
-                        logger.debug(u"3b Positionless Weather Report")
+                        logger.info(u"2b Positionless Weather Report")
                         message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields.update(header_fields)
-                        queue_Message(fields, header=header, footer=footer)
+                        if fields is not None:
+                            fields[u"Message_Type"] = u"_"
+                            fields.update(header_fields)
+                            nf = {k.title(): v for k, v in fields.items()}
+                            log_aprs_message(nf)
+                            queue_display(nf, header=header, footer=footer)
 
                     except Exception, msg:
-                        logger.debug(u"3c Positionless Weather Report")
+                        logger.info(u"2c Positionless Weather Report")
                         message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 5, 1, 4, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields.update(header_fields)
-                        queue_Message(fields, header=header, footer=footer)
+                        if fields is not None:
+                            fields[u"Message_Type"] = u"_"
+                            fields.update(header_fields)
+                            nf = {k.title(): v for k, v in fields.items()}
+                            log_aprs_message(nf)
+                            queue_display(nf, header=header, footer=footer)
 
             # 3 - aprslib !
             elif re.match(r"^!.*", footer, re.M | re.I):
@@ -919,18 +527,24 @@ def decode_aprs_messages(msgs):
                 # #
                 # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
                 try:
-                    logger.info(u"2a Raw Weather Report")
+                    logger.info(u"3a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
-                    log_aprs_lib_message(fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    if fields is not None:
+                        fields[u"Message_Type"] = u"!"
+                        fields.update(header_fields)
+                        log_aprs_message(fields)
+                        queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.debug(u"2 %s" % msg)
-                    logger.debug(u"2b Raw Weather Report")
+                    logger.info(u"3b Raw Weather Report")
                     message_bytes = (1, 8, 1, 9, 1, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
-                    fields.update(header_fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    if fields is not None:
+                        fields[u"Message_Type"] = u"!"
+                        fields.update(header_fields)
+                        log_aprs_message(fields)
+                        queue_display(fields, header=header, footer=footer)
 
             # 4 aprslib =
             elif re.match(r"^=.*", footer, re.M | re.I):
@@ -943,29 +557,41 @@ def decode_aprs_messages(msgs):
                 # S           Symbol Table ID
                 # 08118.08W   Longitude
                 # #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
+                # =2835.63NS08118.08W#PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
+                # =2751.41N/08248.28W_PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
 
                 try:
                     logger.info(u"4 Complete Weather Report")
                     fields = aprslib.parse(aprs_addresses)
-                    log_aprs_lib_message(fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    if fields is not None:
+                        fields.update(header_fields)
+                        fields[u"Message_Type"] = u"="
+
+                        log_aprs_message(fields)
+                        queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.warn(u"4 %s" % msg)
                     try:
-                        logger.debug(u"4a Complete Weather Report")
-                        message_bytes = (1, 8, 1, 9, 0)
+                        logger.info(u"4a Complete Weather Report")
+                        message_bytes = (1, 8, 1, 9, 1, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields.update(header_fields)
-                        queue_Message(fields, header=header, footer=footer)
+                        if fields is not None:
+                            fields.update(header_fields)
+                            log_aprs_message(fields)
+                            fields[u"Message_Type"] = u"="
+                            queue_display(fields, header=header, footer=footer)
 
                     except Exception, msg:
                         logger.warn(u"4 %s" % msg)
-                        logger.debug(u"4b Complete Weather Report")
+                        logger.info(u"4b Complete Weather Report")
                         message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields.update(header_fields)
-                        queue_Message(fields, header=header, footer=footer)
+                        if fields is not None:
+                            fields.update(header_fields)
+                            fields[u"Message_Type"] = u"="
+                            log_aprs_message(fields)
+                            queue_display(fields, header=header, footer=footer)
 
             # 5 aprslib @
             elif re.match(r"^@.*", footer, re.M | re.I):
@@ -997,7 +623,7 @@ def decode_aprs_messages(msgs):
 
                     # Rain in the last hour
                     if footer[42] == u"r":
-                        fields[u"Rainfall in the last hour"] = footer[43:45] + u"." + footer[45]
+                        fields[u"Rainfall in the last hour"] = footer[43:44] + u"." + footer[44:45]
 
                     # Rain in the last 24 hours
                     if footer[46] == u"p":
@@ -1015,9 +641,12 @@ def decode_aprs_messages(msgs):
                     if footer[57] == u"b":
                         fields[u"Barometer"] = footer[58:62] + u"." + footer[62]
 
-                    fields.update(header_fields)
-                    queue_Message(fields, header=header, footer=footer)
-
+                    if fields is not None:
+                        fields[u"Message_Type"] = u"@"
+                        fields.update(header_fields)
+                        log_aprs_message(fields)
+                        nf = {k.title(): v for k, v in fields.items()}
+                        queue_display(nf, header=header, footer=footer)
                 else:
 
                     # __________________________________________________________________________________
@@ -1038,30 +667,42 @@ def decode_aprs_messages(msgs):
                     try:
                         logger.info(u"5 Complete Weather Format")
                         fields = aprslib.parse(aprs_addresses)
-                        log_aprs_lib_message(fields)
-                        queue_Message(fields, header=header, footer=footer)
+                        if fields is not None:
+                            fields[u"Message_Type"] = u"@"
+                            fields.update(header_fields)
+                            log_aprs_message(fields)
+                            nf = {k.title(): v for k, v in fields.items()}
+                            queue_display(nf, header=header, footer=footer)
 
                     except Exception, msg:
                         try:
-                            logger.debug(u"5b Complete Weather Format")
+                            logger.info(u"5b Complete Weather Format")
                             message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
                             fields = parse_aprs_footer(footer, message_bytes)
-                            fields.update(header_fields)
-                            queue_Message(fields, header=header, footer=footer)
+                            if fields is not None:
+                                fields[u"Message_Type"] = u"@"
+                                fields.update(header_fields)
+                                log_aprs_message(fields)
+                                nf = {k.title(): v for k, v in fields.items()}
+                                queue_display(nf, header=header, footer=footer)
 
                         except Exception, msg:
-                            logger.debug(u"5c Complete Weather Format")
+                            logger.info(u"5c Complete Weather Format")
                             message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                             fields = parse_aprs_footer(footer, message_bytes)
-                            fields.update(header_fields)
-                            queue_Message(fields, header=header, footer=footer)
+                            if fields is not None:
+                                fields[u"Message_Type"] = u"@"
+                                fields.update(header_fields)
+                                log_aprs_message(fields)
+                                nf = {k.title(): v for k, v in fields.items()}
+                                queue_display(nf, header=header, footer=footer)
 
             # 6 aprslib /
             elif re.match(r"^/.*", footer, re.M | re.I):
 
                 # __________________________________________________________________________________
                 # Complete Weather Report Format — with Compressed Lat/Long position, with Timestamp
-                # / 311704z 2 757.15N / 08147.20W _ 103/008 g012 t094 r000 p001 P000 h41 b1018 3
+                # / 311704z 2757.15N / 08147.20W _ 103/008 g012 t094 r000 p001 P000 h41 b10183
                 # / Message
                 # 31 17 04z  Zulu Time DHM
                 # 2757.15N   Latitude
@@ -1076,20 +717,34 @@ def decode_aprs_messages(msgs):
                 # P000       Rainfall since midnight
                 # h41        Humidity
                 # b10183     Barometric Pressure
+                #
+                #               1           2            3           4             5            6
+                # 0 123456  7 89012345 6 789012345 6 789 0 123 4567 8901 2345 6789 012 345678 9 012345
+                # / 011851  z 2803.50N / 08146.10W _ 051/000 g006 t096 r000 P000 h45 b10161 w VL1252
+                # 1      6  1       8 1         9 1       7    4    4    4    4   3      6 1      6
+                # rem = "/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
                 try:
-                    logger.info(u"6 Complete Weather Report Format ")
-                    fields = aprslib.parse(aprs_addresses)
-                    log_aprs_lib_message(fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    rem = u"/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
+                    if re.match(rem, footer, re.I):
+                        logger.info(u"6 Complete Weather Report Format ")
+                        fields = aprslib.parse(aprs_addresses)
+                        if fields is not None:
+                            fields[u"Message_Type"] = u"/"
+                            fields.update(header_fields)
+                            log_aprs_message(fields)
+                            queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.debug(u"5 %s" % msg)
                     try:
-                        logger.debug(u"6 Complete Weather Report Format ")
-                        message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 1, 0)
+                        logger.info(u"6 Complete Weather Report Format ")
+                        message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 3, 6, 1, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields.update(header_fields)
-                        queue_Message(fields, header=header, footer=footer)
+                        if fields is not None:
+                            fields[u"Message_Type"] = u"/"
+                            fields.update(header_fields)
+                            log_aprs_message(fields)
+                            queue_display(fields, header=header, footer=footer)
 
                     except Exception, msg:
                         logger.debug(u"6 Trying alternate parsing : %s" % msg)
@@ -1113,8 +768,11 @@ def decode_aprs_messages(msgs):
                 try:
                     logger.info(u"7a Object Report Format")
                     fields = aprslib.parse(aprs_addresses)
-                    log_aprs_lib_message(fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    if fields is not None:
+                        fields[u"Message_Type"] = u";"
+                        fields.update(header_fields)
+                        log_aprs_message(fields)
+                        queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.info(u"7b Object Report Format")
@@ -1122,15 +780,21 @@ def decode_aprs_messages(msgs):
                     try:
                         message_bytes = (1, 9, 1, 7, 8, 1, 9, 1, 7, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields.update(header_fields)
-                        queue_Message(fields, header=header, footer=footer)
+                        if fields is not None:
+                            fields[u"Message_Type"] = u";"
+                            fields.update(header_fields)
+                            log_aprs_message(fields)
+                            queue_display(fields, header=header, footer=footer)
 
                     except Exception, msg:  # else:
                         logger.info(u"7c %s" % msg)
                         message_bytes = (1, 9, 1, 7, 13, 43)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields.update(header_fields)
-                        queue_Message(fields, header=header, footer=footer)
+                        if fields is not None:
+                            fields[u"Message_Type"] = u";"
+                            fields.update(header_fields)
+                            log_aprs_message(fields)
+                            queue_display(fields, header=header, footer=footer)
 
             # 8 aprslib >
             elif re.match(r"^>.*", footer, re.M | re.I):
@@ -1138,10 +802,12 @@ def decode_aprs_messages(msgs):
                 #
                 # >- aprsfl.net/weather - New Port Richey WX
                 try:
-                    logger.debug(u"8 Unknown")
+                    logger.info(u"8 Unknown")
                     fields = aprslib.parse(aprs_addresses)
-                    log_aprs_lib_message(fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    if fields is not None:
+                        fields[u"Message_Type"] = u">"
+                        log_aprs_message(fields)
+                        queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.error(u"8 %s" % msg)
@@ -1155,14 +821,19 @@ def decode_aprs_messages(msgs):
 
                 try:
                     fields = aprslib.parse(aprs_addresses)
-                    log_aprs_lib_message(fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    if fields is not None:
+                        fields[u"Message_Type"] = u":"
+                        log_aprs_message(fields)
+                        queue_display(fields, header=header, footer=footer)
                 except Exception, msg:
                     logger.warn(u"9 %s" % msg)
                     message_bytes = (1, 9, 1, 67, 1, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
-                    fields.update(header_fields)
-                    queue_Message(fields, header=header, footer=footer)
+                    if fields is not None:
+                        fields[u"Message_Type"] = u":"
+                        fields.update(header_fields)
+                        log_aprs_message(fields)
+                        queue_display(fields, header=header, footer=footer)
 
             # 10 aprslib `
             elif re.match(r"^`.*", footer, re.M | re.I):
@@ -1170,10 +841,14 @@ def decode_aprs_messages(msgs):
                 # __________________________________________________________________________________
                 # MicE Format
                 # `
-                logger.debug(u"10 eMic Format")
+                logger.info(u"10 eMic Format")
                 fields = aprslib.parse(aprs_addresses)
-                log_aprs_lib_message(fields)
-                queue_Message(fields, header=header, footer=footer)
+                if fields is not None:
+                    fields[u"Message_Type"] = u"MicE"
+                    fields.update(header_fields)
+                    nf = {k.title(): v for k, v in fields.items()}
+                    log_aprs_message(nf)
+                    queue_display(nf, header=header, footer=footer)
 
             else:
                 # _____________________________________
@@ -1181,52 +856,12 @@ def decode_aprs_messages(msgs):
 
         except Exception, msg:
             logger.error(u"decode_aprs_messages : %s" % msg)
-            field_errors += 1
             continue
 
     return message_counter
 
 
-def decodeMessages(test=True):
-    """
-    Decode Messages
-    :param test:
-    :return:
-    """
-    global field_errors
-    global field_count
-
-    try:
-        logFl = get_gqrx_log_files(test=test)
-
-        for lf in logFl:
-            logger.info(u"Reading : %s" % lf)
-            with open(lf, "rb") as f:
-                messages = f.read()
-
-            msgs = get_aprs_messages(messages)
-            mt = decode_aprs_messages(msgs)
-
-            mtt = mt.items()
-            mts = sorted(mtt, key=lambda mn: mn[1], reverse=True)
-
-            mc = len(msgs)
-            pf = float(field_errors) / float(field_count) * 100.0
-            logger.info(u"Message Type Counts :  %4d " % mc)
-            logger.info(u"Field Count         :  %4d " % field_errors)
-            logger.info(u"Field Errors[%d]    : %3.2f%%" % (field_errors, pf))
-
-            output = u"Top Ten : "
-            for key, value in mts[:10]:
-                output += u"%s[%s] " % (key, value)
-
-            logger.info(u"%s" % output)
-
-    except KeyboardInterrupt:
-        logger.info(u"Bye ")
-
-
-def loopDecodeMessages(test=False):
+def loop_decode_messages(test=False):
     """
     Loop messages and decode as needed
     """
@@ -1266,14 +901,6 @@ def loopDecodeMessages(test=False):
             logFl = get_gqrx_log_files(test=test)
 
 
-def test_decodeMessages():
-    """
-    Test decoding of messages
-    :return:
-    """
-    decodeMessages(test=True)
-
-
 if __name__ == u"__main__":
 
     if False:
@@ -1286,12 +913,9 @@ if __name__ == u"__main__":
             sys.exit(1)
 
     try:
-        program, ifile, ofile = get_CommandLine_Options(sys.argv)
+        # program, ifile, ofile = get_CommandLine_Options(sys.argv)
 
-        if False:
-            decodeMessages(test=False)
-        else:
-            loopDecodeMessages(test=False)
+        loop_decode_messages(test=False)
 
     except KeyboardInterrupt:
         logger.info(u"Bye")

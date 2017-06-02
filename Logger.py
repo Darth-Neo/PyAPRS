@@ -19,6 +19,7 @@ class NullHandler(logging.Handler):
     def emit(self, record):
         pass
 
+
 def listClean(s):
     output = u""
     try:
