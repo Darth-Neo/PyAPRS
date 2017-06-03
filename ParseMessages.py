@@ -8,6 +8,80 @@ logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
 
+def parse_aprs_header(header, footer, n=0):
+    """
+    Parse APRS Headers
+    :param header:
+    :param footer:
+    :param n:
+    :return:
+    """
+    header_fields = None
+    aprs_addresses = None
+
+    try:
+        # fm WC4PEM-10 to APMI06-0 via WC4PEM-14,WIDE2-1 UI  pid=F0
+        addresses = header.split(u" ")
+        fm = addresses[2]
+        to = addresses[4]
+        path = addresses[6]
+
+        if path is None or not (len(path) > 1):
+            via = addresses[5]
+            logger.error(u"via is {0!r}".format(via))
+
+        # M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2
+        aprs_addresses = u"{0}>{1},{2}:{3}".format(fm, to, path, footer)
+        message = u"{0!r} ->{1!r}-> {2!r}".format(fm, path, to)
+        logger.debug(message)
+
+        logger.debug(u"%3d [%s]" % (n, header[10:]))
+        logger.debug(u"    [%s]" % footer)
+
+        header_fields = {u"From": fm, u"To": to, u"Path": path}
+    except Exception, msg:
+        logger.error(u"%s" % msg)
+
+    return header_fields, aprs_addresses
+
+
+def parse_aprs_footer(footer, msg_bytes):
+    """
+    Parse APRS Footer
+    :param footer:
+    :param msg_bytes:
+    :return:
+    """
+    n = y = x = 0
+    fields = list()
+    logger.debug(u"%s" % footer)
+    ml = len(footer)
+
+    try:
+        while True:
+            y += msg_bytes[n]
+            logger.debug(u"%d : %d" % (x, y))
+            if msg_bytes[n] == 0:
+                field = footer[x:]
+                fields.append(field)
+                break
+            else:
+                field = footer[x:y]
+                fields.append(field)
+            # logger.debug(u"Field %d : %s" % (n, field))
+            x = y
+            n += 1
+            if x >= ml:
+                break
+
+    except Exception, em:
+        logger.error(u"%s - %s[%d:%d]" % (em, footer, x, y))
+
+    fields = parse_aprs_fields(fields)
+
+    return fields
+
+
 def parse_symbol(sym):
     """
     Lookyp Sysbol
@@ -26,9 +100,7 @@ def parse_wind_direction(direction):
     logger.debug(u"Wind Direction (n) : {} : {}".format(direction, type(direction)))
 
     try:
-        if isinstance(direction, str):
-            d = int(direction)
-        elif isinstance(direction, unicode):
+        if isinstance(direction, (str, unicode)):
             d = int(direction)
         elif isinstance(direction, float):
             d = int(direction)
@@ -109,7 +181,7 @@ def parse_days(days):
     return EndDate.strftime(u'%Y/%m/%d')
 
 
-def parse_message(msg):
+def parse_weather_message(msg):
     """
     :param msg:
     :return:
@@ -137,9 +209,7 @@ def parse_message(msg):
     if wmessage == u"":
         return None
     else:
-        weather_message = wmessage
-
-    return weather_message
+        return wmessage
 
 
 def parse_aprs_fields(fields):
@@ -156,7 +226,7 @@ def parse_aprs_fields(fields):
     if fields[0] in weather:
         fld[u"Message_Type"] = fields[0]
         for n, field in enumerate(fields[1:]):
-            # logger.debug(u"%03d : %s" % (n, field))
+            logger.debug(u"%03d : %s" % (n, field))
 
             try:
                 if field[0] == u"t":
@@ -335,81 +405,6 @@ def parse_aprs_fields(fields):
     else:
         logger.debug(u"Unknown")
         return None
-
-
-def parse_aprs_header(header, footer, n=0):
-    """
-    Parse APRS Headers
-    :param header:
-    :param footer:
-    :param n:
-    :return:
-    """
-    header_fields = None
-    aprs_addresses = None
-
-    try:
-        # fm WC4PEM-10 to APMI06-0 via WC4PEM-14,WIDE2-1 UI  pid=F0
-        addresses = header.split(u" ")
-        fm = addresses[2]
-        to = addresses[4]
-        path = addresses[6]
-
-        if path is None or not (len(path) > 1):
-            via = addresses[5]
-            logger.error(u"via is {0!r}".format(via))
-
-        # M0XER-4>APRS64,TF3RPF,WIDE2*,qAR,TF3SUT-2
-        aprs_addresses = u"{0}>{1},{2}:{3}".format(fm, to, path, footer)
-        message = u"{0!r} ->{1!r}-> {2!r}".format(fm, path, to)
-        logger.debug(message)
-
-        logger.debug(u"%3d [%s]" % (n, header[10:]))
-        logger.debug(u"    [%s]" % footer)
-
-        header_fields = {u"From": fm, u"To": to, u"Path": path}
-    except Exception, msg:
-        logger.error(u"%s" % msg)
-
-    return header_fields, aprs_addresses
-
-
-def parse_aprs_footer(footer, msg_bytes):
-    """
-    Parse APRS Footer
-    :param footer:
-    :param msg_bytes:
-    :return:
-    """
-    n = y = x = 0
-    fields = list()
-    logger.debug(u"%s" % footer)
-    ml = len(footer)
-
-    try:
-        while True:
-            y += msg_bytes[n]
-            logger.debug(u"%d : %d" % (x, y))
-            if msg_bytes[n] == 0:
-                field = footer[x:]
-                fields.append(field)
-                break
-            else:
-                field = footer[x:y]
-                fields.append(field)
-            # logger.debug(u"Field %d : %s" % (n, field))
-            x = y
-            n += 1
-            if x >= ml:
-                break
-
-    except Exception, em:
-        logger.error(u"%s - %s[%d:%d]" % (em, footer, x, y))
-
-    fields = parse_aprs_fields(fields)
-
-    return fields
-
 
 if __name__ == u"__main__":
     pass
