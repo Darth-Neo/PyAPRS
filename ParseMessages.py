@@ -49,7 +49,7 @@ def parse_wind_direction(direction):
     except Exception, msg:
         pass
 
-    return letter_angle
+    return angle
 
 
 def parse_ULTW_message(field, msg, scale=1.0):
@@ -121,20 +121,12 @@ def parse_message(msg):
     try:
         # Begin displaying messages
         for k, v in sorted(msg.items(), reverse=False):
-            if not (v is None):
-                logger.debug(u"{0} : {1}".format(k, v))
-
             if k in [u"Barometer", u"Barometric Pressure", u"Temperature", u"Humidity", ]:
                 wm[k] = v
 
-        temp = u"{}".format(wm[u"Temperature"]) if u"Temperature" in wm else u" "
-        humidity = u"{}".format(wm[u"Humidity"]) if u"Humidity" in wm else u" "
+        temp = u"{}".format(wm[u"Temperature"]) if u"Temperature" in wm else u"."
+        humidity = u"{}".format(wm[u"Humidity"]) if u"Humidity" in wm else u"."
         pressure = u"{}".format(wm[u"Barometer"]) if u"Barometer" in wm else wm[u"Barometric Pressure"]
-
-        if humidity is None:
-            humidity = u"N/A"
-        if pressure is None:
-            pressure = u"N/A"
 
         wmessage = u"{0:2}F {1:2}% {2:6}".format(temp, humidity, pressure)
         logger.debug(u"{}".format(wmessage))
@@ -209,7 +201,7 @@ def parse_aprs_fields(fields):
                     angle = parse_wind_direction(fv)
                     logger.debug(u"%s : [ Wind Direction ]" % angle)
                     fld[msg] = parse_ULTW_message(angle, msg)
-                    fld[u"---Wind Direction---"] = angle
+                    fld[u"Wind Direction"] = angle
 
                 elif field[0] == u"s":
                     n = 9
@@ -276,10 +268,10 @@ def parse_aprs_fields(fields):
 
             n = 21
             m = u"Wind Direction of Wind Speed Peak (0-255)"
-            msg = u"---Wind Direction---"
+            msg = u"Wind Direction"
             fa = fields[2]
             angle = parse_wind_direction(fa)
-            fld[msg] = parse_ULTW_message(angle, msg)
+            fld[msg] = angle
 
             n = 22
             m = u"Current Outdoor Temp (0_1 deg F increments)"
