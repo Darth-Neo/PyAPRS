@@ -2,7 +2,7 @@
 
 letter_angle = u"YNS"
 list_angle = list()
-list_angle.append([0, 11.26, u"N"])
+list_angle.append([-1, 11.26, u"N"])
 list_angle.append([11.25, 33.75, u"NNE"])
 list_angle.append([33.75, 56.25, u"NE"])
 list_angle.append([56.25, 78.75, u"ENE"])

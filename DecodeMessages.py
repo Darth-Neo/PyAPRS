@@ -171,7 +171,6 @@ def queue_display(message, header=None, footer=None):
     :param message:
     :param header:
     :param footer:
-    :param hash:
     :return:
     """
     global client
@@ -658,9 +657,6 @@ def loop_decode_messages(test=False):
 
 
 if __name__ == u"__main__":
-
-
-
 
     if False:
         fpn = u"mongpd"

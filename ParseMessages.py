@@ -333,7 +333,7 @@ def parse_aprs_fields(fields):
         try:
             n = 20
             m = u"Wind Speed Peak over last 5 min (0_1 kph increments)"
-            msg = u"Wind Speed PeaK"
+            msg = u"Wind Speed Peak"
             fld[msg] = parse_ULTW_message(fields[1], msg, scale=0.1)
 
             n = 21
