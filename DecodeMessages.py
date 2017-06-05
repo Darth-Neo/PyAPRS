@@ -194,6 +194,9 @@ def queue_display(message, header=None, footer=None):
     if not(u"Footer" in nf):
         nf[u"Footer"] = footer
 
+    if not(u"Header" in nf):
+        nf[u"Header"] = header
+
     if not (u"ReadingDateTime" in nf):
         nf[u"ReadingDateTime"] = datetime.now().strftime(u"%b %d  %I:%M %p")
 
