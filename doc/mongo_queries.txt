@@ -4,6 +4,8 @@
 db.getCollection('Weather').find({"Temperature" : {"$exists" : "True"}})
 db.getCollection('Weather').find({"to" : {"$exists" : "true"}})
 
+db.getCollection('Weather').find({"Message_Type" : {$eq : ">"}})
+
 # Comparisons
 #
 db.getCollection('Weather').find({"Temperature" : {"$gt" : 90}})
@@ -12,6 +14,7 @@ db.getCollection('Weather').find({},{'Temperature':"$exists"}).limit(50).sort({'
 # Sorting
 #
 db.getCollection('Weather').find({}).sort({"_id":-1})
+db.getCollection('Weather').find({"Message_Type" : {$eq : ">"}}).sort({"_id":-1})
 
 # Average
 #

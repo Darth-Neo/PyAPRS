@@ -2,13 +2,23 @@
 # #
 # APRS Symbol Tables and Symbols
 #
+from pymongo import MongoClient
 from Logger import *
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
-from pymongo import MongoClient
+# Symbol Tables
+u"""
+ /$ 1.0 XYZ BASIC SYMBOL TABLE
+ /$ 2.0 XYZ ALTERNATE SYMBOL TABLE
+ /$ 3.0 XYZ PRIMARY SYMBOL TABLE
+ \$ 4.0 XYZ OTHER SYMBOL TABLE (\)
+ \$ 5.0 XYZ SECONDARY SYMBOL TABLE (\)
+ /$ 6.0 XYZ LOWER CASE SYMBOL TABLE
+u"""
 
-u"""/$ XYZ BASIC SYMBOL TABLE"""
+
+u"""/$ 1.0 XYZ BASIC SYMBOL TABLE"""
 BASIC_SYMBOL_TABLE = dict()
 BASIC_SYMBOL_TABLE["/!"] = "BB  Police, Sheriff"
 BASIC_SYMBOL_TABLE["/\""] = "BC  reserved (was rain)"
@@ -27,7 +37,7 @@ BASIC_SYMBOL_TABLE["/."] = "BO  X"
 BASIC_SYMBOL_TABLE["//"] = "BP  Red Dot"
 
 
-u""""/$ XYZ ALTERNATE SYMBOL TABLE"""
+u"""/$ 2.0 XYZ ALTERNATE SYMBOL TABLE"""
 ALTERNATE_SYMBOL_TABLE  = dict()
 ALTERNATE_SYMBOL_TABLE["\\$"] = "XYZ ALTERNATE SYMBOL TABLE (\)"
 ALTERNATE_SYMBOL_TABLE["\\0"] = "A0# CIRCLE (IRLP/Echolink/WIRES)"
@@ -81,7 +91,7 @@ ALTERNATE_SYMBOL_TABLE["\\_"] = "DW# # WX site (green digi)"
 ALTERNATE_SYMBOL_TABLE["\\`"] = "DX  Rain (all types w ovrly)"
 
 
-u""""/$ XYZ PRIMARY SYMBOL TABLE"""
+u"""/$ 3.0 XYZ PRIMARY SYMBOL TABLE"""
 PRIMARY_SYMBOL_TABLE = dict()
 PRIMARY_SYMBOL_TABLE["/0"] = "P0  # circle (obsolete)"
 PRIMARY_SYMBOL_TABLE["/1"] = "P1  TBD (these were numbered)"
@@ -133,7 +143,7 @@ PRIMARY_SYMBOL_TABLE["/^"] = "HV  LARGE AIRCRAFT"
 PRIMARY_SYMBOL_TABLE["/_"] = "HW  WEATHER Station (blue)"
 PRIMARY_SYMBOL_TABLE["/`"] = "HX  Dish Antenna"
 
-u"""\$  XYZ OTHER SYMBOL TABLE (\)"""
+u"""\$  4.0 XYZ OTHER SYMBOL TABLE (\)"""
 OTHER_SYMBOL_TABLE = dict()
 OTHER_SYMBOL_TABLE["\!"] = "OBO EMERGENCY (and overlays)"
 OTHER_SYMBOL_TABLE["\\\""] = "OC  reserved"
@@ -151,41 +161,41 @@ OTHER_SYMBOL_TABLE["\\-"] = "ONO House (H=HF) (O = Op Present)"
 OTHER_SYMBOL_TABLE["\\."] = "OO  Ambiguous (Big Question mark)"
 OTHER_SYMBOL_TABLE["\\/"] = "OP  Waypoint Destination"
 
-u"""\$  XYZ SECONDARY SYMBOL TABLE (\)"""
+u"""\$  5.0 XYZ SECONDARY SYMBOL TABLE (\)"""
 SECONDARY_SYMBOL_TABLE = dict()
-SECONDARY_SYMBOL_TABLE ["\\a"] = "SA#O ARRL,ARES,WinLINK,Dstar, etc"
-SECONDARY_SYMBOL_TABLE ["\\b"] = "SB  AVAIL(Blwng Dst/Snd => E ovly)"
-SECONDARY_SYMBOL_TABLE ["\\c"] = "SC#O CD triangle RACES/SATERN/etc"
-SECONDARY_SYMBOL_TABLE ["\\d"] = "SD  DX spot by callsign"
-SECONDARY_SYMBOL_TABLE ["\\e"] = "SE  Sleet (& future ovrly codes)"
-SECONDARY_SYMBOL_TABLE ["\\f"] = "SF  Funnel Cloud"
-SECONDARY_SYMBOL_TABLE ["\\g"] = "SG  Gale Flags"
-SECONDARY_SYMBOL_TABLE ["\\h"] = "SHO Store. or HAMFST Hh=HAM store"
-SECONDARY_SYMBOL_TABLE ["\\i"] = "SI# BOX or points of Interest"
-SECONDARY_SYMBOL_TABLE ["\\j"] = "SJ  WorkZone (Steam Shovel)"
-SECONDARY_SYMBOL_TABLE ["\\k"] = "SKO Special Vehicle SUV,ATV,4x4"
-SECONDARY_SYMBOL_TABLE ["\\l"] = "SL  Areas      (box,circles,etc)"
-SECONDARY_SYMBOL_TABLE ["\\m"] = "SM  Value Sign (3 digit display)"
-SECONDARY_SYMBOL_TABLE ["\\n"] = "SN# OVERLAY TRIANGLE"
-SECONDARY_SYMBOL_TABLE ["\\o"] = "SO  small circle"
-SECONDARY_SYMBOL_TABLE ["\\p"] = "SP  AVAIL (PrtlyCldy => ( ovly P"
-SECONDARY_SYMBOL_TABLE ["\\q"] = "SQ  AVAIL"
-SECONDARY_SYMBOL_TABLE ["\\r"] = "SR  Restrooms"
-SECONDARY_SYMBOL_TABLE ["\\s"] = "SS# OVERLAY SHIP/boats"
-SECONDARY_SYMBOL_TABLE ["\\t"] = "ST  Tornado"
-SECONDARY_SYMBOL_TABLE ["\\u"] = "SU# OVERLAYED TRUCK"
-SECONDARY_SYMBOL_TABLE ["\\v"] = "SV# OVERLAYED Van"
-SECONDARY_SYMBOL_TABLE ["\\w"] = "SWO Flooding (Avalanches/Slides)"
-SECONDARY_SYMBOL_TABLE ["\\x"] = "SX  Wreck or Obstruction ->X<-"
-SECONDARY_SYMBOL_TABLE ["\\y"] = "SY  Skywarn"
-SECONDARY_SYMBOL_TABLE ["\\z"] = "SZ# OVERLAYED Shelter"
-SECONDARY_SYMBOL_TABLE ["\\{"] = "Q1  AVAIL? (Fog ==> E ovly F)"
-SECONDARY_SYMBOL_TABLE ["\\|"] = "Q2  TNC Stream Switch"
-SECONDARY_SYMBOL_TABLE ["\\}"] = "Q3  AVAIL? (maybe)"
-SECONDARY_SYMBOL_TABLE ["\\~"] = "Q4  TNC Stream Switch"
+SECONDARY_SYMBOL_TABLE["\\a"] = "SA#O ARRL,ARES,WinLINK,Dstar, etc"
+SECONDARY_SYMBOL_TABLE["\\b"] = "SB  AVAIL(Blwng Dst/Snd => E ovly)"
+SECONDARY_SYMBOL_TABLE["\\c"] = "SC#O CD triangle RACES/SATERN/etc"
+SECONDARY_SYMBOL_TABLE["\\d"] = "SD  DX spot by callsign"
+SECONDARY_SYMBOL_TABLE["\\e"] = "SE  Sleet (& future ovrly codes)"
+SECONDARY_SYMBOL_TABLE["\\f"] = "SF  Funnel Cloud"
+SECONDARY_SYMBOL_TABLE["\\g"] = "SG  Gale Flags"
+SECONDARY_SYMBOL_TABLE["\\h"] = "SHO Store. or HAMFST Hh=HAM store"
+SECONDARY_SYMBOL_TABLE["\\i"] = "SI# BOX or points of Interest"
+SECONDARY_SYMBOL_TABLE["\\j"] = "SJ  WorkZone (Steam Shovel)"
+SECONDARY_SYMBOL_TABLE["\\k"] = "SKO Special Vehicle SUV,ATV,4x4"
+SECONDARY_SYMBOL_TABLE["\\l"] = "SL  Areas      (box,circles,etc)"
+SECONDARY_SYMBOL_TABLE["\\m"] = "SM  Value Sign (3 digit display)"
+SECONDARY_SYMBOL_TABLE["\\n"] = "SN# OVERLAY TRIANGLE"
+SECONDARY_SYMBOL_TABLE["\\o"] = "SO  small circle"
+SECONDARY_SYMBOL_TABLE["\\p"] = "SP  AVAIL (PrtlyCldy => ( ovly P"
+SECONDARY_SYMBOL_TABLE["\\q"] = "SQ  AVAIL"
+SECONDARY_SYMBOL_TABLE["\\r"] = "SR  Restrooms"
+SECONDARY_SYMBOL_TABLE["\\s"] = "SS# OVERLAY SHIP/boats"
+SECONDARY_SYMBOL_TABLE["\\t"] = "ST  Tornado"
+SECONDARY_SYMBOL_TABLE["\\u"] = "SU# OVERLAYED TRUCK"
+SECONDARY_SYMBOL_TABLE["\\v"] = "SV# OVERLAYED Van"
+SECONDARY_SYMBOL_TABLE["\\w"] = "SWO Flooding (Avalanches/Slides)"
+SECONDARY_SYMBOL_TABLE["\\x"] = "SX  Wreck or Obstruction ->X<-"
+SECONDARY_SYMBOL_TABLE["\\y"] = "SY  Skywarn"
+SECONDARY_SYMBOL_TABLE["\\z"] = "SZ# OVERLAYED Shelter"
+SECONDARY_SYMBOL_TABLE["\\{"] = "Q1  AVAIL? (Fog ==> E ovly F)"
+SECONDARY_SYMBOL_TABLE["\\|"] = "Q2  TNC Stream Switch"
+SECONDARY_SYMBOL_TABLE["\\}"] = "Q3  AVAIL? (maybe)"
+SECONDARY_SYMBOL_TABLE["\\~"] = "Q4  TNC Stream Switch"
 
 
-u"""/$ XYZ LOWER CASE SYMBOL TABLE"""
+u"""/$ 6.0 XYZ LOWER CASE SYMBOL TABLE"""
 LOWER_CASE_SYMBOL_TABLE = dict()
 LOWER_CASE_SYMBOL_TABLE["/a"] = "LA  AMBULANCE     (SSID-1)"
 LOWER_CASE_SYMBOL_TABLE["/b"] = "LB  BIKE          (SSID-4)"
@@ -205,7 +215,7 @@ LOWER_CASE_SYMBOL_TABLE["/o"] = "LO  EOC"
 LOWER_CASE_SYMBOL_TABLE["/p"] = "LP  ROVER (puppy, or dog)"
 LOWER_CASE_SYMBOL_TABLE["/q"] = "LQ  GRID SQ shown above 128 m"
 LOWER_CASE_SYMBOL_TABLE["/r"] = "LR  Repeater         (Feb 07)"
-LOWER_CASE_SYMBOL_TABLE["/s"] = "S  SHIP (pwr boat)  (SSID-8)"
+LOWER_CASE_SYMBOL_TABLE["/s"] = "S   SHIP (pwr boat)  (SSID-8)"
 LOWER_CASE_SYMBOL_TABLE["/t"] = "LT  TRUCK STOP"
 LOWER_CASE_SYMBOL_TABLE["/u"] = "LU  TRUCK (18 wheeler)"
 LOWER_CASE_SYMBOL_TABLE["/v"] = "LV  VAN           (SSID-15)"
@@ -218,26 +228,120 @@ LOWER_CASE_SYMBOL_TABLE["/|"] = "J2  TNC Stream Switch"
 LOWER_CASE_SYMBOL_TABLE["/}"] = "J3"
 LOWER_CASE_SYMBOL_TABLE["/~"] = "J4  TNC Stream Switch"
 
+u"""
+Symbol  PRIMARY SYMBOL TABLE (/)	ALTERNATE WX TABLE (\)
+!	Police, Sheriff	                EMERGENCY (!)
+"	reserved (had been rain)	    reserved
+#	DIGI (white center)	            NUMBERED STAR (green)
+$	PHONE	                        Bank or ATM (green box)
+%	DX CLUSTER	
+&	HF GATEway	                    NUMBERED DIAMOND
+'	AIRCRAFT (small)	            Crash site
+(	CLOUDY	                        CLOUDY
+)	(was Mic-Rptr moved to /m)	
+*	SNOW	                        SNOW
++	Red Cross	                    Church
+,	reverse L shape	
+-	House QTH	
+.	X	
+/	Dot	
+0	Numeral circle	                NUMBERED CIRCLE
+1	Numeral circle	
+2	Numeral circle	
+3	Numeral circle
+4	Numeral circle	                all of these are available
+5	Numeral circle
+6	Numeral circle
+7	Numeral circle
+8	Numeral circle
+9	Numeral circle	                Gas Station (blue pump)
+:	FIRE	                        Hail
+;	Campground	                    Park/Picnic area
+<	Motorcycle	                    ADVISORY
+=	RAILROAD ENGINE
+>	CAR (SSID-9)	                NUMBERED CAR
+?	SERVER for FIles	            INFO Kiosk (Blue box with ? in it)
+@	HURRICANE or tropical storm	    HURICANE
+A	Aid Station	                    NUMBERED BOX
+B	BBS	                            Blowing Snow
+C	Canoe	                        Coast Guard
+D	                                Drizzle
+E	                                Smoke
+F	                                Freezing rain
+G	Grid Square (6 digit)	        Snow Shower
+H	HOTEL (blue bed symbol)	        Haze
+I	Tcp-Ip	                        Rain Shower
+J	                                Lightening
+K	School
+L	avail	                        Lighthouse
+M	MacAPRS	
+N	NTS Station	                    Navigation Buoy
+O	BALLOON	
+P	Police	                        Parking
+Q	TBD	                            QUAKE
+R	RECREATIONAL VEHICLE	        Restaurant
+S	SHUTTLE	Satellite/Pacsat
+T	THUNDERSTORM	                Thunderstorm
+U	BUS	SUNNY
+V	TBD	VORTAC Nav Aid
+W	National WX Service Site	    NWS site and W-R DIGI (green)
+X	HELO (SSID-6)	                Pharmacy Rx
+Y	YACHT (sail SSID-5)
+Z	WinAPRS
+[	RUNNER	                        Wall Cloud
+\	TRIANGLE (DF)	
+]	PBBS	
+^	LARGE AIRCRAFT	                NUMBERED Aircraft
+_	WEATHER Station (blue)	        WX and W-R DIGI (green)
+`	Dish Antenna	                Rain
+a	AMBULANCE
+b	BIKE	                        Blowing Dust/Sand
+c	tbd
+d	Dual Garage (Fire dept)	        DX spot by callsign
+e	HORSE (equestrian)	            Sleet
+f	FIRE TRUCK	                    Funnel Cloud
+g	Glider	                        Gale Flags
+h	HOSPITAL	                    HAM store
+i	IOTA (islands on the air)
+j	JEEP (SSID-12)	                WorkZone (Steam Shovel)
+k	TRUCK (SSID-14)
+l	Area Locations (avail)	        Area Locations (box,circles,etc)
+m	Mic-Repeater	                MILEPOST with 2 digit display
+n	Node	                        NUMBERED TRIANGLE
+o	EOC	                            small circle
+p	ROVER (puppy)	                Partly Cloudy
+q	GRID SQ shown above 128 miles
+r	ANTENNA	                        Restrooms
+s	SHIP (pwr boat SSID-8)	        NUMBERED SHIP/boat (top view)
+t	TRUCK STOP	                    Tornado
+u	TRUCK (18 wheeler)	            NUMBERED TRUCK
+v	VAN (SSID-15)	                NUMBERED Van
+w	WATER station	                Flooding
+x	xAPRS (Unix)
+y -	YAGI @ QTH
+z	
+{	                                 Fog
+|	reserved (Stream Switch)
+}	diamond (open with dot in center)
+~	reserved (Stream Switch)
+"""
 
 u"""
-/$ XYZ BASIC SYMBOL TABLE
-/$ XYZ PRIMARY SYMBOL TABLE
-
-\$  XYZ OTHER SYMBOL TABLE (\)
-\$  XYZ ALTERNATE SYMBOL TABLE (\)
-\$  XYZ SECONDARY SYMBOL TABLE (\)
-
-/$ XYZ LOWER CASE SYMBOL TABLE
+/$  1.0 XYZ BASIC SYMBOL TABLE
+/$  2.0 XYZ PRIMARY SYMBOL TABLE
+\$  3.0 XYZ OTHER SYMBOL TABLE (\)
+\$  4.0 XYZ ALTERNATE SYMBOL TABLE (\)
+\$  5.0 XYZ SECONDARY SYMBOL TABLE (\)
+/$  6.0 XYZ LOWER CASE SYMBOL TABLE
 """
 
 SYMBOL_TABLES = dict()
 SYMBOL_TABLES.update(BASIC_SYMBOL_TABLE)
 SYMBOL_TABLES.update(PRIMARY_SYMBOL_TABLE)
-SYMBOL_TABLES.update(LOWER_CASE_SYMBOL_TABLE)
 SYMBOL_TABLES.update(OTHER_SYMBOL_TABLE)
 SYMBOL_TABLES.update(ALTERNATE_SYMBOL_TABLE)
 SYMBOL_TABLES.update(SECONDARY_SYMBOL_TABLE)
-
+SYMBOL_TABLES.update(LOWER_CASE_SYMBOL_TABLE)
 
 symbols = dict()
 symbols[u"G"] = u"Glider"
@@ -259,7 +363,7 @@ symbols[u"W"] = u"Water Station"
 symbols[u"X"] = u"X-APRS"
 
 message_types = dict()
-message_types[u"U"] = u"Ultimeter 2000"
+message_types[u"$ULTW"] = u"Ultimeter 2000"
 message_types[u"!"] = u"Raw Weather Report"
 message_types[u"_"] = u"Positionless Weather Report"
 message_types[u"="] = u"Complete Weather Report"

@@ -253,7 +253,9 @@ def decode_aprs_messages(msgs):
                 # $ULTW 0018 0060 02D8 8214  27C4   0003 8702   0001 03E8  0099 0050 0000 0001
                 # $ULTW 0000 0000 02D3 670F  27BC   FFFD 8765   0001 03E8  0099 0046 0001 0000
                 # $ULTW 00B0 0042 02D3 25ED  27C2   0010 8935   0001 03E8  0098 050A 0037 006A
+                # $ULTW 0064 00AB 030C 1821  2784   0001 85E5   0001 0323  009B 058C 0000 0026
                 #        1.7 66   72.3 97.09 1017.8 1.6  35125  1    100.0 152  1290 0.55 10.6
+                # rem = u"^$ULTW[0-9a-zA-Z]{52}"
                 try:
                     logger.debug(u"1 Ultimeter 2000")
                     message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
@@ -265,7 +267,7 @@ def decode_aprs_messages(msgs):
                 except Exception as e:
                     logger.warn(u"{} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
 
-            # 2 _
+            # 2 aprslib _
             elif re.match(r"^_.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Positionless Weather Report Positionless Weather Data
@@ -284,12 +286,12 @@ def decode_aprs_messages(msgs):
                 # b1016 Barometric Pressure
                 # 5     APRS Software
                 # wDAV  WX Unit -  WinAPRS
-                #
                 #           1           2            3           4          5         6
                 # 123456789 0123 4567 8901 2345 6789 0123 4567 890 123456 78901234567890123456789
                 # _05311550 c359 s000 g000 t086 r000 p086 P000 h64 b10160 tU2k
                 # _05312040 c359 s000 g000 t075 r000 p086 P035 h99 b10182 tU2k
-                # _{1}\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.*
+                #
+                # rem = u"^_\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.*"
                 # 1 8 c 3 s 3 g 3 t 3 r 3 p 3 P 3 h 2 b 5
                 try:
                     logger.info(u"2a Raw Weather Report")
@@ -319,7 +321,7 @@ def decode_aprs_messages(msgs):
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
-            # 3 - aprslib !
+            # 3 aprslib !
             elif re.match(r"^!.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
                 # Raw Weather Report - Ultimeter
@@ -330,6 +332,7 @@ def decode_aprs_messages(msgs):
                 # 08215.39W Longitude
                 # #
                 # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
+                # rem = u"^!\d{4}\.\d{2}[N|S]\.{1}\d{4}\.\d{2}[E|W}{1}.*"
                 try:
                     logger.info(u"3a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
@@ -356,8 +359,10 @@ def decode_aprs_messages(msgs):
                 # S           Symbol Table ID
                 # 08118.08W   Longitude
                 # #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
-                # =2835.63NS08118.08W#PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
-                # =2751.41N/08248.28W_PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
+                # =2835.63N S 08118.08W #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
+                # =2751.41N / 08248.28W _PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
+                # =2816.97N S08242.70W#PHG74326/W3 Digi, Port Richey, FL aprsfl.net
+                # rem = u"^=\d{4}\.\d{2}[N|S]{1}.\d{4}\.\d{2}[E|W]{1}.*"
                 try:
                     logger.info(u"4a Complete Weather Report")
                     message_bytes = (1, 8, 1, 9, 1, 0)
@@ -398,12 +403,15 @@ def decode_aprs_messages(msgs):
                 # @ 170008 z 2831.07 N / 08142.92 W _ 000/000 g002t094r000p000P000h49b10150.DsVP
                 # @ 311706 z 2815.27 N S 08139.28 W _ PHG74606/W3,FLn Davenport, Florida
                 # @ 311657 z 2752.80 N S 08148.94 W _ PHG75506/W3,FLn-N Bartow, Florida
-                # @ 095148h2835.66 N / 08118.09 W o Orange County ARES
+                # @ 095148 h 2835.66 N / 08118.09 W o Orange County ARES
+                #
+                # ^@\d{6}[h|z]{1}\d{4}\.\d{2}[N|S]{1}.\d{4}\.\d{2}[E|W]{1}.+
                 if footer[15] == u"N" and footer[25] == u"W":
 
                     fields[u"Time"] = footer[1:6]
                     fields[u"Latitude"] = footer[8:16]
-                    fields[u"Longitude"] = footer[17:26]
+                    fields[u"Symbol_Table"] = footer[16]
+                    fields[u"Symbol"] = footer[26]
 
                     # Wind Gust
                     if footer[34] == u"g":
@@ -444,11 +452,11 @@ def decode_aprs_messages(msgs):
 
                     # __________________________________________________________________________________
                     # Complete Weather Format
-                    # @220605z2831.07N/08142.92W_000/000g002t100r000p000P000h46b10144.DsVP
-                    # @ 220605z 2831.07N / 08142.92W _000/000 g002 t100 r000 p000 P000 h46 b10144 .DsVP.
+                    # @ 220605 z 2831.07N / 08142.92W _000/000 g002 t100 r000 p000 P000 h46 b10144.DsVP
+                    # @ 220605 z 2831.07N / 08142.92W _000/000 g002 t100 r000 p000 P000 h46 b10144 .DsVP.
                     # @ Message
                     # 22 06 05z Zulu Time
-                    #  2831.07N Latitude
+                    # 2831.07N  Latitude
                     # 08142.92W Longitude
                     # g002      Wind Gust in the last five minutes
                     # t100      Temperature
@@ -457,6 +465,8 @@ def decode_aprs_messages(msgs):
                     # P000      Rainfall since midnight
                     # h46       Humidity
                     # b10144    Barometric Pressure
+                    #
+                    # ^@\d{6}[h|z]{1}\d{4}\.\d{2}[N|S]{1}.\d{4}\.\d{2}[E|W]{1}.\d{3}.\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{3}b\d{5}.+
                     try:
                         logger.info(u"5 Complete Weather Format")
                         fields = aprslib.parse(aprs_addresses)
@@ -505,7 +515,7 @@ def decode_aprs_messages(msgs):
                 # 0 123456  7 89012345 6 789012345 6 789 0 123 4567 8901 2345 6789 012 345678 9 012345
                 # / 011851  z 2803.50N / 08146.10W _ 051/000 g006 t096 r000 P000 h45 b10161 w VL1252
                 # 1      6  1       8 1         9 1       7    4    4    4    4   3      6 1      6
-                # rem = "/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
+                # rem = u"^/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
                 try:
                     rem = u"/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
                     if re.match(rem, footer, re.I):
@@ -531,7 +541,7 @@ def decode_aprs_messages(msgs):
             # 7 aprslib ;
             elif re.match(r"^;.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
-                # ;145.650  *051916z2749.31N/08244.16Wr/A=000025AA/Cert-Node 273835
+                # ;145.650  * 051916 z 2749.31N / 08244.16W r/A=000025AA/Cert-Node 273835
                 # ;
                 # Object Name                           145.650
                 # skip                                  *
@@ -572,6 +582,7 @@ def decode_aprs_messages(msgs):
             elif re.match(r"^>.*", footer, re.M | re.I):
                 #
                 # >- aprsfl.net/weather - New Port Richey WX
+                # >DIGI_NED: W4MCO-10 digipeater in Winter Park, FL
                 try:
                     logger.info(u"8 Unknown")
                     fields = aprslib.parse(aprs_addresses)
@@ -584,7 +595,9 @@ def decode_aprs_messages(msgs):
             # 9 aprslib :
             elif re.match(r"^:.*", footer, re.M | re.I):
                 # __________________________________________________________________________________
-                # :
+                # :BLN3     :OCARES Net tonite at 1900 hrs. Please send check-ins to KG4CWV.{005"
+                # rem = u"^:.+"
+                rem = u"^:"
                 logger.info(u"9 Object Report Format")
 
                 try:
