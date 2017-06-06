@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import re
 from datetime import datetime, timedelta
-from aprs_table_and_symbols import *
 from ListAngle import *
 from Logger import *
 logger = setupLogging(__name__)
@@ -80,17 +79,6 @@ def parse_aprs_footer(footer, msg_bytes):
     fields = parse_aprs_fields(fields)
 
     return fields
-
-
-def parse_symbol(sym):
-    """
-    Lookyp Sysbol
-    :param sym:
-    :return:
-    """
-    s = sym.title()
-
-    return symbols[s]
 
 
 def parse_wind_direction(direction):

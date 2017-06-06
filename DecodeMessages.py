@@ -4,6 +4,7 @@ import aprslib
 from GetPid import *
 from ParseMessages import *
 from rmq.rmq_send import *
+from pymongo import *
 
 from Logger import *
 logger = setupLogging(__name__)
@@ -262,6 +263,8 @@ def decode_aprs_messages(msgs):
                     fields = parse_aprs_footer(footer, message_bytes)
                     fields[u"Message_Type"] = u"$ULTW"
                     fields.update(header_fields)
+                    if fields[u"Wind Direction"] == 0:
+                        fields[u"Wind Direction"] = u"N"
                     queue_display(fields, header=header, footer=footer)
 
                 except Exception as e:
@@ -290,13 +293,13 @@ def decode_aprs_messages(msgs):
                 # 123456789 0123 4567 8901 2345 6789 0123 4567 890 123456 78901234567890123456789
                 # _05311550 c359 s000 g000 t086 r000 p086 P000 h64 b10160 tU2k
                 # _05312040 c359 s000 g000 t075 r000 p086 P035 h99 b10182 tU2k
-                #
+                # _06051349 c359 s000 g000 t081 r000 p037 P023 h89 b10084 tU2k
                 # rem = u"^_\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.*"
                 # 1 8 c 3 s 3 g 3 t 3 r 3 p 3 P 3 h 2 b 5
-                try:
+                try:  # This seems to fail alot
                     logger.info(u"2a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
-                    fields[u"Message_Type"] = u"_"
+                    fields[u"Message_Type"] = u"_a"
                     fields.update(header_fields)
                     nf = {k.title(): v for k, v in fields[u"weather"].items()}
                     del fields[u"Weather"]
@@ -309,7 +312,7 @@ def decode_aprs_messages(msgs):
                         logger.info(u"2b Positionless Weather Report")
                         message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields[u"Message_Type"] = u"_"
+                        fields[u"Message_Type"] = u"_b"
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -317,7 +320,7 @@ def decode_aprs_messages(msgs):
                         logger.info(u"2c Positionless Weather Report")
                         message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 5, 1, 4, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields[u"Message_Type"] = u"_"
+                        fields[u"Message_Type"] = u"_c"
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -336,7 +339,7 @@ def decode_aprs_messages(msgs):
                 try:
                     logger.info(u"3a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
-                    fields[u"Message_Type"] = u"!"
+                    fields[u"Message_Type"] = u"!a"
                     fields.update(header_fields)
                     queue_display(fields, header=header, footer=footer)
 
@@ -345,7 +348,7 @@ def decode_aprs_messages(msgs):
                     logger.info(u"3b Raw Weather Report")
                     message_bytes = (1, 8, 1, 9, 1, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
-                    fields[u"Message_Type"] = u"!"
+                    fields[u"Message_Type"] = u"!b"
                     fields.update(header_fields)
                     queue_display(fields, header=header, footer=footer)
 
@@ -359,8 +362,11 @@ def decode_aprs_messages(msgs):
                 # S           Symbol Table ID
                 # 08118.08W   Longitude
                 # #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
-                # =2835.63N S 08118.08W #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
-                # =2751.41N / 08248.28W _PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
+                #
+                #             1           2            3           4          5         6
+                # 012345678 9 012345678 9 0123456789 0123 4567 890 123456 78901234567890123456789
+                # =2835.63N S 08118.08W # PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
+                # =2751.41N / 08248.28W _ PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
                 # =2816.97N S08242.70W#PHG74326/W3 Digi, Port Richey, FL aprsfl.net
                 # rem = u"^=\d{4}\.\d{2}[N|S]{1}.\d{4}\.\d{2}[E|W]{1}.*"
                 try:
@@ -368,7 +374,7 @@ def decode_aprs_messages(msgs):
                     message_bytes = (1, 8, 1, 9, 1, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
                     fields.update(header_fields)
-                    fields[u"Message_Type"] = u"="
+                    fields[u"Message_Type"] = u"=a"
                     queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
@@ -377,14 +383,14 @@ def decode_aprs_messages(msgs):
                     message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
                     fields.update(header_fields)
-                    fields[u"Message_Type"] = u"="
+                    fields[u"Message_Type"] = u"=b"
                     queue_display(fields, header=header, footer=footer)
 
                     try:
                         logger.info(u"4 Complete Weather Report")
                         fields = aprslib.parse(aprs_addresses)
                         fields.update(header_fields)
-                        fields[u"Message_Type"] = u"="
+                        fields[u"Message_Type"] = u"=c"
                         queue_display(fields, header=header, footer=footer)
 
                     except Exception, msg:
@@ -445,7 +451,7 @@ def decode_aprs_messages(msgs):
                         fields[u"Barometer"] = footer[58:62] + u"." + footer[62]
 
                     if fields is not None:
-                        fields[u"Message_Type"] = u"@"
+                        fields[u"Message_Type"] = u"@a"
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
                 else:
@@ -470,7 +476,7 @@ def decode_aprs_messages(msgs):
                     try:
                         logger.info(u"5 Complete Weather Format")
                         fields = aprslib.parse(aprs_addresses)
-                        fields[u"Message_Type"] = u"@"
+                        fields[u"Message_Type"] = u"@b"
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -479,7 +485,7 @@ def decode_aprs_messages(msgs):
                             logger.info(u"5b Complete Weather Format")
                             message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
                             fields = parse_aprs_footer(footer, message_bytes)
-                            fields[u"Message_Type"] = u"@"
+                            fields[u"Message_Type"] = u"@c"
                             fields.update(header_fields)
                             queue_display(fields, header=header, footer=footer)
 
@@ -487,7 +493,7 @@ def decode_aprs_messages(msgs):
                             logger.info(u"5c Complete Weather Format")
                             message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                             fields = parse_aprs_footer(footer, message_bytes)
-                            fields[u"Message_Type"] = u"@"
+                            fields[u"Message_Type"] = u"@d"
                             fields.update(header_fields)
                             queue_display(fields, header=header, footer=footer)
 
@@ -521,7 +527,8 @@ def decode_aprs_messages(msgs):
                     if re.match(rem, footer, re.I):
                         logger.info(u"6 Complete Weather Report Format ")
                         fields = aprslib.parse(aprs_addresses)
-                        fields[u"Message_Type"] = u"/"
+                        fields[u"Message_Type"] = u"/a"
+                        fields[u"Symbol"] = fields[u"Footer"][26]
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -531,7 +538,7 @@ def decode_aprs_messages(msgs):
                         logger.info(u"6 Complete Weather Report Format ")
                         message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 3, 6, 1, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields[u"Message_Type"] = u"/"
+                        fields[u"Message_Type"] = u"/b"
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -556,7 +563,7 @@ def decode_aprs_messages(msgs):
                 try:
                     logger.info(u"7a Object Report Format")
                     fields = aprslib.parse(aprs_addresses)
-                    fields[u"Message_Type"] = u";"
+                    fields[u"Message_Type"] = u";a"
                     fields.update(header_fields)
                     queue_display(fields, header=header, footer=footer)
 
@@ -566,7 +573,7 @@ def decode_aprs_messages(msgs):
                     try:
                         message_bytes = (1, 9, 1, 7, 8, 1, 9, 1, 7, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields[u"Message_Type"] = u";"
+                        fields[u"Message_Type"] = u";b"
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -574,7 +581,7 @@ def decode_aprs_messages(msgs):
                         logger.info(u"7c %s" % msg)
                         message_bytes = (1, 9, 1, 7, 13, 43)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields[u"Message_Type"] = u";"
+                        fields[u"Message_Type"] = u";c"
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -602,13 +609,13 @@ def decode_aprs_messages(msgs):
 
                 try:
                     fields = aprslib.parse(aprs_addresses)
-                    fields[u"Message_Type"] = u":"
+                    fields[u"Message_Type"] = u":a"
                     queue_display(fields, header=header, footer=footer)
                 except Exception, msg:
                     logger.warn(u"9 %s" % msg)
                     message_bytes = (1, 9, 1, 67, 1, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
-                    fields[u"Message_Type"] = u":"
+                    fields[u"Message_Type"] = u":b"
                     fields.update(header_fields)
                     queue_display(fields, header=header, footer=footer)
 

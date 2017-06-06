@@ -130,8 +130,7 @@ def test_underscore(header):
         nfa = {k.title(): v for k, v in nf.items()}
         cf = check_fields(value_fields[m], nfa)
 
-        if cf is False:
-            logger.warn(u"_ Test Failure")
+        assert cf is True
 
     return ret
 
