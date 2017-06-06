@@ -302,7 +302,7 @@ def decode_aprs_messages(msgs):
                     fields[u"Message_Type"] = u"_a"
                     fields.update(header_fields)
                     nf = {k.title(): v for k, v in fields[u"weather"].items()}
-                    del fields[u"Weather"]
+                    del fields[u"weather"]
                     nfa = {k.title(): v for k, v in nf.items()}
                     queue_display(nfa, header=header, footer=footer)
 
@@ -416,6 +416,7 @@ def decode_aprs_messages(msgs):
 
                     fields[u"Time"] = footer[1:6]
                     fields[u"Latitude"] = footer[8:16]
+                    fields[u"Longitude"] = footer[17:26]
                     fields[u"Symbol_Table"] = footer[16]
                     fields[u"Symbol"] = footer[26]
 
@@ -581,9 +582,11 @@ def decode_aprs_messages(msgs):
                         logger.info(u"7c %s" % msg)
                         message_bytes = (1, 9, 1, 7, 13, 43)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields[u"Message_Type"] = u";c"
-                        fields.update(header_fields)
-                        queue_display(fields, header=header, footer=footer)
+
+                        if not (fields is None):
+                            fields[u"Message_Type"] = u";c"
+                            fields.update(header_fields)
+                            queue_display(fields, header=header, footer=footer)
 
             # 8 aprslib >
             elif re.match(r"^>.*", footer, re.M | re.I):
