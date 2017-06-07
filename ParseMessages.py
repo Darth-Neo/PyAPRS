@@ -44,11 +44,12 @@ def parse_aprs_header(header, footer, n=0):
     return header_fields, aprs_addresses
 
 
-def parse_aprs_footer(footer, msg_bytes):
+def parse_aprs_footer(footer, msg_bytes, grab_fields=True):
     """
     Parse APRS Footer
     :param footer:
     :param msg_bytes:
+    :param grab_fields:
     :return:
     """
     n = y = x = 0
@@ -76,7 +77,8 @@ def parse_aprs_footer(footer, msg_bytes):
     except Exception, em:
         logger.error(u"%s - %s[%d:%d]" % (em, footer, x, y))
 
-    fields = parse_aprs_fields(fields)
+    if grab_fields:
+        fields = parse_aprs_fields(fields)
 
     return fields
 

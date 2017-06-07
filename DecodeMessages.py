@@ -198,6 +198,9 @@ def queue_display(message, header=None, footer=None):
     if not(u"Header" in nf):
         nf[u"Header"] = header
 
+    if not(u"Message_Type" in nf):
+        nf[u"Message_Type"] = footer[0]
+
     if not (u"ReadingDateTime" in nf):
         nf[u"ReadingDateTime"] = datetime.now().strftime(u"%b %d  %I:%M %p")
 
@@ -297,14 +300,16 @@ def decode_aprs_messages(msgs):
                 # rem = u"^_\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.*"
                 # 1 8 c 3 s 3 g 3 t 3 r 3 p 3 P 3 h 2 b 5
                 try:  # This seems to fail alot
-                    logger.info(u"2a Raw Weather Report")
-                    fields = aprslib.parse(aprs_addresses)
-                    fields[u"Message_Type"] = u"_a"
-                    fields.update(header_fields)
-                    nf = {k.title(): v for k, v in fields[u"weather"].items()}
-                    del fields[u"weather"]
-                    nfa = {k.title(): v for k, v in nf.items()}
-                    queue_display(nfa, header=header, footer=footer)
+                    rem = u"^_\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.*"
+                    if re.match(rem, footer, re.M):
+                        logger.info(u"2a Raw Weather Report")
+                        fields = aprslib.parse(aprs_addresses)
+                        fields[u"Message_Type"] = u"_a"
+                        fields.update(header_fields)
+                        nf = {k.title(): v for k, v in fields[u"weather"].items()}
+                        del fields[u"weather"]
+                        nfa = {k.title(): v for k, v in nf.items()}
+                        queue_display(nfa, header=header, footer=footer)
 
                 except Exception, msg:
                     try:
@@ -335,7 +340,8 @@ def decode_aprs_messages(msgs):
                 # 08215.39W Longitude
                 # #
                 # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
-                # rem = u"^!\d{4}\.\d{2}[N|S]\.{1}\d{4}\.\d{2}[E|W}{1}.*"
+                # !2818.17N/08209.50W#Dade City
+                # rem = u"^!\d{4}.\d{2}(N|S).+\d{4}.\d{2}(E|W).+"
                 try:
                     logger.info(u"3a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
@@ -363,20 +369,30 @@ def decode_aprs_messages(msgs):
                 # 08118.08W   Longitude
                 # #PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
                 #
-                #             1           2            3           4          5         6
-                # 012345678 9 012345678 9 0123456789 0123 4567 890 123456 78901234567890123456789
-                # =2835.63N S 08118.08W # PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
-                # =2751.41N / 08248.28W _ PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
-                # =2816.97N S08242.70W#PHG74326/W3 Digi, Port Richey, FL aprsfl.net
-                # rem = u"^=\d{4}\.\d{2}[N|S]{1}.\d{4}\.\d{2}[E|W]{1}.*"
+                #              1           2            3           4          5         6
+                # 0 12345678 9 012345678 9 0123456789 0123 4567 890 123456 78901234567890123456789
+                # = 2835.63N S 08118.08W # PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
+                # = 2751.41N / 08248.28W _ PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
+                # = 2816.97N S 08242.70W # PHG74326/W3 Digi, Port Richey, FL aprsfl.net
+                # = 2816.98N / 08242.70W I West Pasco I-Gate 200ft AGL aprsfl.net'
+                rem = u"^=\d{4}.\d{2}(N|S){1}.+\d{4}.\d{2}(E|W){1}.+"
                 try:
-                    logger.info(u"4a Complete Weather Report")
-                    message_bytes = (1, 8, 1, 9, 1, 0)
-                    fields = parse_aprs_footer(footer, message_bytes)
-                    fields.update(header_fields)
-                    fields[u"Message_Type"] = u"=a"
-                    queue_display(fields, header=header, footer=footer)
+                    if re.match(rem, footer, re.M):
+                        logger.info(u"4a Complete Weather Report")
+                        message_bytes = (1, 8, 1, 9, 1, 0)
+                        flds = parse_aprs_footer(footer, message_bytes, grab_fields=False)
 
+                        fields = dict()
+                        fields.update(header_fields)
+                        fields[u"Message_Type"] = flds[0]
+                        fields[u"Longitude"] = flds[1]
+                        fields[u"Symbol_Table"] = flds[2]
+                        fields[u"Latitude"] = flds[3]
+                        fields[u"Symbol"] = flds[4]
+                        fields[u"Comments"] = flds[4]
+                        queue_display(fields, header=header, footer=footer)
+                    else:
+                        pass
                 except Exception, msg:
                     logger.warn(u"4 %s" % msg)
                     logger.info(u"4b Complete Weather Report")
@@ -411,7 +427,7 @@ def decode_aprs_messages(msgs):
                 # @ 311657 z 2752.80 N S 08148.94 W _ PHG75506/W3,FLn-N Bartow, Florida
                 # @ 095148 h 2835.66 N / 08118.09 W o Orange County ARES
                 #
-                # ^@\d{6}[h|z]{1}\d{4}\.\d{2}[N|S]{1}.\d{4}\.\d{2}[E|W]{1}.+
+                # ^@\d{6}(h|z){1}\d{4}.\d{2}(N|S){1}.\d{4}\.\d{2}(E|W){1}.+
                 if footer[15] == u"N" and footer[25] == u"W":
 
                     fields[u"Time"] = footer[1:6]
@@ -560,7 +576,10 @@ def decode_aprs_messages(msgs):
                 # Symbol Code                           /
                 # Course Speed, Power/Height/Gain/Dir   A=00002
                 # Comment                               5AA/Cert-Node 273835
-
+                # ";443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org "
+                # ";443.075+ *061653z2833.11N/08123.12WrCFRA",
+                # ";443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org "
+                # rem = u"^;\d{3}.\d{3}.{3}\d{6}(z|h)\d{4}.\d{2}(N|S){1}.+\d{4}\.\d{2}(E|W){1}.+
                 try:
                     logger.info(u"7a Object Report Format")
                     fields = aprslib.parse(aprs_addresses)

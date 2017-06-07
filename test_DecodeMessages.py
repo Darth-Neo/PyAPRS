@@ -227,15 +227,23 @@ if __name__ == u"__main__":
 
     header = u'AFSK1200: fm W4HEM-14 to APN391-0 via WC4PEM-15,WC4PEM-14,WIDE2-0 UI  pid=F0'
 
-    test_ultw(header)
+    # test_ultw(header)
 
-    test_underscore(header)
+    # test_underscore(header)
 
-    test_ampersand(header)
+    # test_ampersand(header)
 
     test_message = list()
 
+    s = u"=2816.97NS08242.70W#PHG74326/W3 Digi, Port Richey, FL aprsfl.net"
+    rem = u"^=\d{4}.\d{2}[NS]{1}.+\d{4}.\d{2}[EW]{1}.+"
+
+    if re.match(rem, s, re.M):
+        t = True
+        logger.debug(u"{}".format(t))
+
     # Skip for now
+    test_message.append(u"/062342z2803.50N/08146.10W_210/000g001t076r000P111h85b10072wVL1252")
     test_message.append(u"/311704z2757.15N/08147.20W_103/008g012t094r000p001P000h41b10183")
     test_message.append(u"/011851z2803.50N/08146.10W_051/000g006t096r000P000h45b10161wVL1252")
 
