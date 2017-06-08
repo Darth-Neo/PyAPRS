@@ -3,8 +3,50 @@ from ParseMessages import *
 import aprslib
 
 from Logger import *
+from pymongo import *
+
+MONGODB_SERVER = u"localhost"
+MONGODB_PORT = 27017
+MONGO_URI = u"mongodb://" + MONGODB_SERVER + u":%s" % MONGODB_PORT + u"/"
+MONGODB_DB = u"local"
+MONGODB_COLLECTION = u"Weather"
+
+client = MongoClient(MONGO_URI)
+db = client[MONGODB_DB]
+collection = db[MONGODB_COLLECTION]
+
 logger = setupLogging(__name__)
-logger.setLevel(DEBUG)
+logger.setLevel(INFO)
+
+
+def get_data(message_type, func, rows=0):
+    """
+    This function will iterate through all messages for a given message type, and
+    evaluate the regular expression inside the passed function. 
+    This is doing closures in python.
+    :param message_type: 
+    :param func: 
+    :param rows: 
+    :return: 
+    """
+    global collection
+    success = 0
+    failure = 0
+    failures = list()
+    results = list()
+
+    cursor = collection.find({u"Message_Type": {u'$eq': message_type}})  # .sort({u"_id": -1})
+
+    for page in cursor[:rows]:
+        if isinstance(page, dict):
+            if func(page):
+                success += 1
+                results.append(page)
+            else:
+                failures.append(page)
+                failure += 1
+
+    return success, failure, failures
 
 
 def check_fields(value_fields, test_fields):
@@ -42,6 +84,15 @@ def check_fields(value_fields, test_fields):
         return False
 
     return True
+
+
+def status_response(success, failure, failures, show_rows=100):
+    logger.info(u"Sucess  : {}".format(success))
+    logger.info(u"Failure : {}".format(failure))
+
+    for f in failures[:show_rows]:
+        m = f[u"Footer"]
+        logger.error(u"    {}".format(m))
 
 
 def test_ultw(header):
@@ -136,30 +187,13 @@ def test_underscore(header):
 
 
 def test_ampersand(header):
-
-    ret = True
-
+    results = list()
     test_fields = list([u"Humidity", u"Pressure", u'Rain_1H', u"Rain_24H", u"Rain_Since_Midnight",
                         u"Temperature", u"Wind_Gust"])
 
     test_message = list()
     test_message.append(u"@022230z2813.12N/08214.30W_138/000g002t079r000p000P000Zephyrhills WX {UIV32N}")
     test_message.append(u"@170008z2831.07N/08142.92W_000/000g002t094r000p000P000h49b10150.DsVP")
-
-    #              1            2             3           4            5          6
-    # 0 123456 7 8901234 5 6 78901234 5 6 7 89012 3456 7890 1234 5678 9012 345 67890123456789
-    # @ 022230 z 2813.12 N / 08214.30 W _ 138/000 g002 t079 r000 p000 P000 Zephyrhills WX {UIV32N}
-    # @ 170008 z 2831.07 N / 08142.92 W _ 000/000 g002 t094 r000 p000 P000 h49 b10150 .DsVP
-
-    # test_message.append(u"@311706z2815.27NS08139.28W_PHG74606/W3,FLn Davenport, Florida")
-    # test_message.append(u"@311657z2752.80NS08148.94W_PHG75506/W3,FLn-N Bartow, Florida")
-    # test_message.append(u"@095148h2835.66N/08118.09Wo Orange County ARES")
-
-    #              1            2             3           4            5          6
-    # 0 123456 7 8901234 5 6 78901234 5 6 7 89012 3456 7890 1234 5678 9012 345 67890123456789
-    # @ 311706 z 2815.27 N S 08139.28 W _ PHG74606/W3,FLn Davenport, Florida
-    # @ 311657 z 2752.80 N S 08148.94 W _ PHG75506/W3,FLn-N Bartow, Florida
-    # @ 095148h2835.66 N / 08118.09 W o Orange County ARES
 
     value_fields = list()
     value_fields.append([u"N/A", u"N/A", 0.0, 0.0, u"N/A", 79, 2])
@@ -173,8 +207,15 @@ def test_ampersand(header):
         try:
             if footer[15] == u"N" and footer[25] == u"W":
                 fields[u"Time"] = footer[1:6]
-                fields[u"Latitude"] = footer[8:16]
-                fields[u"Longitude"] = footer[17:26]
+                fields[u"Latitude"] = footer[8:10] + u"." + footer[10:12] + footer[13:16]
+
+                if footer[17] == u"0":
+                    fields[u"Longitude"] = footer[18:20] + u"." + footer[19:21] + footer[23:26]
+                else:
+                    fields[u"Longitude"] = footer[17:19] + u"." + footer[19:21] + footer[23:26]
+
+                fields[u"Symbol_Table"] = footer[16]
+                fields[u"Symbol"] = footer[26]
 
                 # Wind Gust
                 if footer[34] == u"g":
@@ -211,6 +252,8 @@ def test_ampersand(header):
             logger.info(u"header_fields  : .{}.".format(header_fields))
             logger.info(u"aprs_addresses : .{}.".format(aprs_addresses))
 
+            logger.info(u"fields : {}{}".format(fields, os.linesep))
+
             status = check_fields(value_fields[m], fields)
 
             if status is False:
@@ -220,11 +263,190 @@ def test_ampersand(header):
             logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
             ret = False
 
-    return ret
+
+def test_ampersand_history(message_type):
+
+    ret = True
+    rows = 100
+
+    #              1            2             3           4            5          6
+    # 0 123456 7 8901234 5 6 78901234 5 6 7 89012 3456 7890 1234 5678 9012 345 67890123456789
+    # @ 311706 z 2815.27 N S 08139.28 W _ PHG74606/W3,FLn Davenport, Florida
+    # @ 311657 z 2752.80 N S 08148.94 W _ PHG75506/W3,FLn-N Bartow, Florida
+    # @ 074932 h 2833.70 N / 08120.29 W - Bob, Orlando, Florida
+    # @ 010515 z 2815.27 N S 08139.28 W _ PHG74606/W3,FLn Davenport, Florida
+    rem2 = u"^@\d{6}(h|z){1}\d{4}\.\d{2}(N|S){1}(/|S){1}\d{5}\.\d{2}(E|W)(_|#|-).*$"
+
+    #              1            2            3            4            5          6
+    # 0 123456 7 8901234 5 6 78901234 5 6 7890123 4567 8901 2345 6789 0123 45 67890123456789
+    # @ 170008 z 2831.07 N / 08142.92 W _ 000/000 g002 t094 r000 p000 P000 h49 b10150 .DsVP
+    # @ 011037 z 2815.56 N / 08241.26 W _ 142/000 g003 t055 r000 P000 p000 h94 b10211 - New Port Richey WX
+
+    rem1 = u"^@\d{6}(h|z)\d{4}\.\d{2}(N|S)(/|S)\d{5}\.\d{2}(E|W)_\d{3}/\d{3}" \
+           u"g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.+$"
+
+    #              1            2            3           4            5           6
+    # 0 123456 7 8901234 5 6 78901234 5 6 7890123 4567 8901 2345 6789 0123 456 789012 3456789
+    # @ 080526 z 2815.27 N / 08139.28 W _ 136/002 g005 t075 r000 p057 P000 h00 b10073
+    # @ 022230 z 2813.12 N / 08214.30 W _ 138/000 g002 t079 r000 p000 P000 Zephyrhills WX {UIV32N}
+    rem0 = u"^@\d{6}(h|z){1}\d{4}\.\d{2}(N|S){1}(/|S){1}\d{5}\.\d{2}(E|W)_\d{3}/\d{3}" \
+           u"g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}$"
+
+    def func(page):
+        message = page[u"Footer"]
+
+        logger.debug(u".{}.".format(message))
+        if re.match(rem0, message):
+            logger.info(u"0. Success : {}".format(message))
+            return True
+        else:
+            if re.match(rem1, message):
+                logger.info(u"1. Success : {}".format(message))
+                return True
+            else:
+                if re.match(rem2, message):
+                    logger.info(u"2. Success : {}".format(message))
+                    return True
+                else:
+                    logger.info(u"3. Failure : {}".format(message))
+                    return False
+
+    success, failure, failures = get_data(message_type, func, rows=rows)
+    status_response(success, failure, failures, show_rows=10)
+
+
+def test_forward_slash_history(message_type):
+    #              1            2            3           4            5           6
+    # 0 123456 7 8901234 5 6 78901234 5 6 7890123 4567 8901 2345 6789 0123 456 789012 3456789
+    # / 062342 z 2803.50 N / 08146.10 W _ 210/000 g001t076r000P111h85b10072wVL1252")
+    # / 311704 z 2757.15 N / 08147.20 W _ 103/008 g012t094r000p001P000h41b10183")
+    # / 011851 z 2803.50 N / 08146.10 W _ 051/000 g006t096r000P000h45b10161wVL1252")
+
+    rem0 = u"/\d{6}(z|h)\d{4}.+\d{2}(N|S){1}/\d{4}.+\d{2}(E|W){1}_\d{3}/\d{3}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
+    rem1 = u"/\d{6}(z|h)\d{4}.+\d{2}(N|S){1}/\d{4}.+\d{2}(E|W){1}_\d{3}/\d{3}g\d{3}t[\d]{3}r\d{3}" \
+           u"p\d{3}P\d{3}h\d{2}b\d{4}.*"
+    rem2 = u"/\d{6}(z|h)\d{4}.+\d{2}(N|S){1}/\d{4}.+\d{2}(E|W){1}.+\d{3}/\d{3}.+"
+
+    def func(page):
+        message = page[u"Footer"]
+
+        logger.debug(u".{}.".format(message))
+        if re.match(rem0, message):
+            logger.info(u"0. Success : {}".format(message))
+            return True
+        else:
+            if re.match(rem1, message):
+                logger.info(u"1. Success : {}".format(message))
+                return True
+            else:
+                if re.match(rem2, message):
+                    logger.info(u"2. Success : {}".format(message))
+                    return True
+                else:
+                    logger.info(u"3. Failure : {}".format(message))
+                    return False
+
+    success, failure, failures = get_data(message_type, func, rows=100)
+    status_response(success, failure, failures)
+
+
+def test_equal_history(message_type):
+    #               1            2         3         4         5         6
+    # 0 1234567 8 9 01234567 8 9 0123456789012345678901234567890123456789012 3456789
+    # = 2835.63 N S 08118.08 W # PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
+    # = 2751.41 N / 08248.28 W _ PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
+
+    rows = 100
+
+    rem0 = u"^=\d{4}\.\d{2}(N|S)(S|/|T|I)\d{5}\.\d{2}(E|W)(#|_|&|I|N|a|-).+"
+    rem1 = u"=\d{4}.+\d{4}(N|S)(/|I)\d{4}.+\d{4}(W|E)/.+"
+    rem2 = u"^=.+$"
+
+    def func(page):
+        message = page[u"Footer"]
+
+        logger.debug(u".{}.".format(message))
+        if re.match(rem0, message):
+            logger.info(u"0. Success : {}".format(message))
+            return True
+        elif re.match(rem1, message):
+            logger.info(u"1. Success : {}".format(message))
+            return True
+        elif re.match(rem2, message):
+            logger.info(u"2. Successful Failure : {}".format(message))
+            return False
+        else:
+            logger.info(u"3. Failure : {}".format(message))
+            return False
+
+    success, failure, failures = get_data(message_type, func, rows=100)
+    status_response(success, failure, failures)
+
+
+def test_semicolon_history(message_type):
+    rows = 100
+
+    # ";443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org "
+    # ";443.075+ *061653z2833.11N/08123.12WrCFRA",
+    # ";443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org "
+    rem0 = u"^;\d{3}.+\d{3}[ +-].+\*\d{6}(z|h)\d{4}.\d{2}(N|S){1}.+\d{4}\.\d{2}(E|W){1}.+"
+    rem1 = u""
+    rem2 = u""
+
+    def func(page):
+        message = page[u"Footer"]
+
+        logger.debug(u".{}.".format(message))
+        if re.match(rem0, message):
+            logger.info(u"0. Success : {}".format(message))
+            return True
+        elif re.match(rem1, message):
+            logger.info(u"1. Success : {}".format(message))
+            return True
+        elif re.match(rem2, message):
+            logger.info(u"2. Successful Failure : {}".format(message))
+            return False
+        else:
+            logger.info(u"3 Failure : {}".format(message))
+            return False
+
+    success, failure, failures = get_data(message_type, func, rows=rows)
+    status_response(success, failure, failures)
+
+
+def test_exclamation_history(message_type):
+    rows = 10
+
+    # !2749.10NS 08215.39W#PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
+    # !!0000009D02DB13E1279202B1--------00FF048D00000000
+    rem0 = u"^!\d{4}\.\d{2}(N|S)(_|S)\d{5}\.\d{2}(E|W)(#|_)(.|,|/| \(\@).+"
+    rem1 = u"^!\d{4}\.\d{2}(N|S)(_|S)\d{5}\.\d{2}(E|W).+"
+    rem2 = u"^!\d{4}\.\d{2}(N|S)"
+
+    def func(page):
+        message = page[u"Footer"]
+
+        logger.debug(u".{}.".format(message))
+        if re.match(rem0, message):
+            logger.info(u"0. Success : {}".format(message))
+            return True
+        elif re.match(rem1, message):
+            logger.info(u"1. Success : {}".format(message))
+            return True
+        elif re.match(rem2, message):
+            logger.info(u"2. Successful Failure : {}".format(message))
+            return False
+        else:
+            logger.info(u"4. Failure : {}".format(message))
+            return False
+
+    success, failure, failures = get_data(message_type, func, rows=rows)
+    status_response(success, failure, failures)
 
 
 if __name__ == u"__main__":
 
+    test_message = list()
     header = u'AFSK1200: fm W4HEM-14 to APN391-0 via WC4PEM-15,WC4PEM-14,WIDE2-0 UI  pid=F0'
 
     # test_ultw(header)
@@ -233,23 +455,17 @@ if __name__ == u"__main__":
 
     # test_ampersand(header)
 
-    test_message = list()
+    message_type = u"@a"
+    # test_ampersand_history(message_type)
 
-    s = u"=2816.97NS08242.70W#PHG74326/W3 Digi, Port Richey, FL aprsfl.net"
-    rem = u"^=\d{4}.\d{2}[NS]{1}.+\d{4}.\d{2}[EW]{1}.+"
+    message_type = u"/a"
+    # test_forward_slash_history(message_type)
 
-    if re.match(rem, s, re.M):
-        t = True
-        logger.debug(u"{}".format(t))
+    message_type = u"="
+    # test_equal_history(message_type)
 
-    # Skip for now
-    test_message.append(u"/062342z2803.50N/08146.10W_210/000g001t076r000P111h85b10072wVL1252")
-    test_message.append(u"/311704z2757.15N/08147.20W_103/008g012t094r000p001P000h41b10183")
-    test_message.append(u"/011851z2803.50N/08146.10W_051/000g006t096r000P000h45b10161wVL1252")
+    message_type = u";a"
+    # test_semicolon_history(message_type)
 
-    # Skip for now
-    test_message.append(u"!2749.10NS08215.39W#PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)")
-    test_message.append(u"=2835.63NS08118.08W#PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net")
-    test_message.append(u"=2751.41N/08248.28W_PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>")
-    test_message.append(u";145.650*051916z2749.31N/08244.16Wr/A=000025AA/Cert-Node 273835")
-
+    message_type = u"!a"
+    # test_exclamation_history(message_type)

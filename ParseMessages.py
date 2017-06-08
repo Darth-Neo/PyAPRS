@@ -396,5 +396,6 @@ def parse_aprs_fields(fields):
         logger.debug(u"Unknown")
         return None
 
+
 if __name__ == u"__main__":
     pass

@@ -346,15 +346,18 @@ def decode_aprs_messages(msgs):
                     logger.info(u"3a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
                     fields[u"Message_Type"] = u"!a"
+                    fields[u"longitude"] = u"{:6.2f}".format(fields[u"longitude"])
+                    fields[u"latitude"] = u"{:6.2f}".format(fields[u"latitude"])
                     fields.update(header_fields)
                     queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
-                    logger.debug(u"2 %s" % msg)
                     logger.info(u"3b Raw Weather Report")
                     message_bytes = (1, 8, 1, 9, 1, 0)
                     fields = parse_aprs_footer(footer, message_bytes)
                     fields[u"Message_Type"] = u"!b"
+                    fields[u"longitude"] = u"{:6.2f}".format(fields[u"longitude"])
+                    fields[u"latitude"] = u"{:6.2f}".format(fields[u"latitude"])
                     fields.update(header_fields)
                     queue_display(fields, header=header, footer=footer)
 
@@ -385,9 +388,9 @@ def decode_aprs_messages(msgs):
                         fields = dict()
                         fields.update(header_fields)
                         fields[u"Message_Type"] = flds[0]
-                        fields[u"Longitude"] = flds[1]
+                        fields[u"Latitude"] = flds[1][0:2] + u"." + flds[1][2:]
                         fields[u"Symbol_Table"] = flds[2]
-                        fields[u"Latitude"] = flds[3]
+                        fields[u"Longitude"] = u"-" + flds[3][1:3] + u"." + flds[3][3:]
                         fields[u"Symbol"] = flds[4]
                         fields[u"Comments"] = flds[4]
                         queue_display(fields, header=header, footer=footer)
@@ -419,20 +422,40 @@ def decode_aprs_messages(msgs):
                 fields[u"header"] = header
                 fields[u"footer"] = footer
 
-                #              1            2             3            4         5         6
-                # 0 123456 7 8901234 5 6 78901234 5 6 7 89012 3456789012345678901234567890123456789
-                # @ 022230 z 2813.12 N / 08214.30 W _ 138/000 g002t079r000p000P000Zephyrhills WX {UIV32N}
-                # @ 170008 z 2831.07 N / 08142.92 W _ 000/000 g002t094r000p000P000h49b10150.DsVP
+                #              1            2             3           4            5          6
+                # 0 123456 7 8901234 5 6 78901234 5 6 7 89012 3456 7890 1234 5678 9012 345 67890123456789
                 # @ 311706 z 2815.27 N S 08139.28 W _ PHG74606/W3,FLn Davenport, Florida
                 # @ 311657 z 2752.80 N S 08148.94 W _ PHG75506/W3,FLn-N Bartow, Florida
-                # @ 095148 h 2835.66 N / 08118.09 W o Orange County ARES
-                #
-                # ^@\d{6}(h|z){1}\d{4}.\d{2}(N|S){1}.\d{4}\.\d{2}(E|W){1}.+
-                if footer[15] == u"N" and footer[25] == u"W":
+                # @ 074932 h 2833.70 N / 08120.29 W - Bob, Orlando, Florida
+                # @ 010515 z 2815.27 N S 08139.28 W _ PHG74606/W3,FLn Davenport, Florida
+                rem2 = u"^@\d{6}(h|z){1}\d{4}\.\d{2}(N|S){1}(/|S){1}\d{5}\.\d{2}(E|W)(_|#|-).*$"
 
+                #              1            2            3            4            5          6
+                # 0 123456 7 8901234 5 6 78901234 5 6 7890123 4567 8901 2345 6789 0123 45 67890123456789
+                # @ 170008 z 2831.07 N / 08142.92 W _ 000/000 g002 t094 r000 p000 P000 h49 b10150 .DsVP
+                # @ 011037 z 2815.56 N / 08241.26 W _ 142/000 g003 t055 r000 P000 p000 h94 b10211 - New Port Richey WX
+
+                rem1 = u"^@\d{6}(h|z)\d{4}\.\d{2}(N|S)(/|S)\d{5}\.\d{2}(E|W)_\d{3}/\d{3}" \
+                       u"g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.+$"
+
+                #              1            2            3           4            5           6
+                # 0 123456 7 8901234 5 6 78901234 5 6 7890123 4567 8901 2345 6789 0123 456 789012 3456789
+                # @ 080526 z 2815.27 N / 08139.28 W _ 136/002 g005 t075 r000 p057 P000 h00 b10073
+                # @ 022230 z 2813.12 N / 08214.30 W _ 138/000 g002 t079 r000 p000 P000 Zephyrhills WX {UIV32N}
+                rem0 = u"^@\d{6}(h|z){1}\d{4}\.\d{2}(N|S){1}(/|S){1}\d{5}\.\d{2}(E|W)_\d{3}/\d{3}" \
+                       u"g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}$"
+
+                if re.match(rem0, footer):
                     fields[u"Time"] = footer[1:6]
-                    fields[u"Latitude"] = footer[8:16]
-                    fields[u"Longitude"] = footer[17:26]
+                    # fields[u"Latitude"] = footer[8:10] + u"." + footer[10:16]
+                    # fields[u"Longitude"] = footer[17:19] + u"." + footer[19:26]
+                    fields[u"Latitude"] = footer[8:10] + u"." + footer[10:12] + footer[13:16]
+                    # Remove leading zero
+                    if footer[17] == u"0":
+                        fields[u"Longitude"] = u"-" + footer[18:20] + u"." + footer[19:21] + u"." + footer[23:26]
+                    else:
+                        fields[u"Longitude"] = u"-" + footer[17:19] + u"." + footer[19:21] + u"." + footer[23:26]
+
                     fields[u"Symbol_Table"] = footer[16]
                     fields[u"Symbol"] = footer[26]
 
@@ -471,29 +494,13 @@ def decode_aprs_messages(msgs):
                         fields[u"Message_Type"] = u"@a"
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
-                else:
-
-                    # __________________________________________________________________________________
-                    # Complete Weather Format
-                    # @ 220605 z 2831.07N / 08142.92W _000/000 g002 t100 r000 p000 P000 h46 b10144.DsVP
-                    # @ 220605 z 2831.07N / 08142.92W _000/000 g002 t100 r000 p000 P000 h46 b10144 .DsVP.
-                    # @ Message
-                    # 22 06 05z Zulu Time
-                    # 2831.07N  Latitude
-                    # 08142.92W Longitude
-                    # g002      Wind Gust in the last five minutes
-                    # t100      Temperature
-                    # r000      Rainfall in the last hour
-                    # p000      Rainfall in the last 24 hours
-                    # P000      Rainfall since midnight
-                    # h46       Humidity
-                    # b10144    Barometric Pressure
-                    #
-                    # ^@\d{6}[h|z]{1}\d{4}\.\d{2}[N|S]{1}.\d{4}\.\d{2}[E|W]{1}.\d{3}.\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{3}b\d{5}.+
+                elif re.match(rem1, footer):
                     try:
                         logger.info(u"5 Complete Weather Format")
                         fields = aprslib.parse(aprs_addresses)
                         fields[u"Message_Type"] = u"@b"
+                        fields[u"Symbol_Table"] = footer[16]
+                        fields[u"Symbol"] = footer[26]
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -503,6 +510,10 @@ def decode_aprs_messages(msgs):
                             message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
                             fields = parse_aprs_footer(footer, message_bytes)
                             fields[u"Message_Type"] = u"@c"
+                            fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:]
+                            fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:]
+                            fields[u"Symbol_Table"] = footer[16]
+                            fields[u"Symbol"] = footer[26]
                             fields.update(header_fields)
                             queue_display(fields, header=header, footer=footer)
 
@@ -511,6 +522,10 @@ def decode_aprs_messages(msgs):
                             message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                             fields = parse_aprs_footer(footer, message_bytes)
                             fields[u"Message_Type"] = u"@d"
+                            fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:]
+                            fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:]
+                            fields[u"Symbol_Table"] = footer[16]
+                            fields[u"Symbol"] = footer[26]
                             fields.update(header_fields)
                             queue_display(fields, header=header, footer=footer)
 
@@ -540,11 +555,21 @@ def decode_aprs_messages(msgs):
                 # 1      6  1       8 1         9 1       7    4    4    4    4   3      6 1      6
                 # rem = u"^/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
                 try:
-                    rem = u"/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
-                    if re.match(rem, footer, re.I):
-                        logger.info(u"6 Complete Weather Report Format ")
+                    rem0 = u"/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
+                    rem1 = u"/\d{6}(z|h)\d{4}.+\d{2}(N|S){1}/\d{4}.+\d{2}(E|W){1}_\d{3}/\d{3}g\d{3}t[\d]{3}r\d{3}" \
+                           u"p\d{3}P\d{3}h\d{2}b\d{4}.*"
+                    if re.match(rem0, footer):
+                        logger.info(u"6.a Complete Weather Report Format ")
                         fields = aprslib.parse(aprs_addresses)
                         fields[u"Message_Type"] = u"/a"
+                        fields[u"Symbol"] = fields[u"Footer"][26]
+                        fields.update(header_fields)
+                        queue_display(fields, header=header, footer=footer)
+
+                    elif re.match(rem1, footer):
+                        logger.info(u"6.b Complete Weather Report Format ")
+                        fields = aprslib.parse(aprs_addresses)
+                        fields[u"Message_Type"] = u"/b"
                         fields[u"Symbol"] = fields[u"Footer"][26]
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
@@ -555,7 +580,7 @@ def decode_aprs_messages(msgs):
                         logger.info(u"6 Complete Weather Report Format ")
                         message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 3, 6, 1, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
-                        fields[u"Message_Type"] = u"/b"
+                        fields[u"Message_Type"] = u"/c"
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -585,6 +610,8 @@ def decode_aprs_messages(msgs):
                     fields = aprslib.parse(aprs_addresses)
                     fields[u"Message_Type"] = u";a"
                     fields.update(header_fields)
+                    fields[u"Longitude"] = fields[u"Longitude"] + u"W"
+                    fields[u"Latitude"] = fields[u"Latitude"] + u"N"
                     queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
@@ -649,6 +676,8 @@ def decode_aprs_messages(msgs):
                 logger.info(u"10 eMic Format")
                 fields = aprslib.parse(aprs_addresses)
                 fields[u"Message_Type"] = u"MicE"
+                fields[u"longitude"] = u"{:6.2f}W".format(fields[u"longitude"])
+                fields[u"latitude"] = u"{:6.2f}N".format(fields[u"latitude"])
                 fields.update(header_fields)
                 queue_display(fields, header=header, footer=footer)
 

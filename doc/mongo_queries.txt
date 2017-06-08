@@ -6,6 +6,10 @@ db.getCollection('Weather').find({"to" : {"$exists" : "true"}})
 
 db.getCollection('Weather').find({"Message_Type" : {$eq : ">"}})
 
+# Remove Records
+#
+db.getCollection('Weather').remove({"ReadingDateTime" : {$regex : "^2016.+$", $options: "si"}})
+
 # Comparisons
 #
 db.getCollection('Weather').find({"Temperature" : {"$gt" : 90}})
