@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Decoded packets: https://aprs.fi/?c=raw&call=K4OZS-11
+#
 import aprslib
 from GetPid import *
 from ParseMessages import *
@@ -346,8 +348,8 @@ def decode_aprs_messages(msgs):
                     logger.info(u"3a Raw Weather Report")
                     fields = aprslib.parse(aprs_addresses)
                     fields[u"Message_Type"] = u"!a"
-                    fields[u"longitude"] = u"{:6.2f}".format(fields[u"longitude"])
-                    fields[u"latitude"] = u"{:6.2f}".format(fields[u"latitude"])
+                    fields[u"longitude"] = u"{:6.2f}W".format(fields[u"longitude"])
+                    fields[u"latitude"] = u"{:6.2f}N".format(fields[u"latitude"])
                     fields.update(header_fields)
                     queue_display(fields, header=header, footer=footer)
 
@@ -378,42 +380,45 @@ def decode_aprs_messages(msgs):
                 # = 2751.41N / 08248.28W _ PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
                 # = 2816.97N S 08242.70W # PHG74326/W3 Digi, Port Richey, FL aprsfl.net
                 # = 2816.98N / 08242.70W I West Pasco I-Gate 200ft AGL aprsfl.net'
-                rem = u"^=\d{4}.\d{2}(N|S){1}.+\d{4}.\d{2}(E|W){1}.+"
+                rem = u"^=\d{4}\.\d{2}(N|S){1}(S|/)\d{5}\.\d{2}(E|W){1}.+"
                 try:
-                    if re.match(rem, footer, re.M):
+                    if re.match(rem, footer):
                         logger.info(u"4a Complete Weather Report")
                         message_bytes = (1, 8, 1, 9, 1, 0)
                         flds = parse_aprs_footer(footer, message_bytes, grab_fields=False)
 
                         fields = dict()
                         fields.update(header_fields)
-                        fields[u"Message_Type"] = flds[0]
-                        fields[u"Latitude"] = flds[1][0:2] + u"." + flds[1][2:]
+                        fields[u"Message_Type"] = flds[0] + u"a"
+                        fields[u"Latitude"] = flds[1][0:2] + u"." + flds[1][2:4] + flds[1][5:8]
                         fields[u"Symbol_Table"] = flds[2]
-                        fields[u"Longitude"] = u"-" + flds[3][1:3] + u"." + flds[3][3:]
+                        fields[u"Longitude"] = u"-" + flds[3][1:3] + u"." + flds[3][2:4] + flds[3][6:9]
                         fields[u"Symbol"] = flds[4]
                         fields[u"Comments"] = flds[4]
                         queue_display(fields, header=header, footer=footer)
                     else:
                         pass
                 except Exception, msg:
-                    logger.warn(u"4 %s" % msg)
-                    logger.info(u"4b Complete Weather Report")
-                    message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
-                    fields = parse_aprs_footer(footer, message_bytes)
-                    fields.update(header_fields)
-                    fields[u"Message_Type"] = u"=b"
-                    queue_display(fields, header=header, footer=footer)
-
                     try:
-                        logger.info(u"4 Complete Weather Report")
-                        fields = aprslib.parse(aprs_addresses)
+                        logger.warn(u"4 %s" % msg)
+                        logger.info(u"4b Complete Weather Report")
+                        message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
+                        fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
-                        fields[u"Message_Type"] = u"=c"
+                        fields[u"Message_Type"] = u"=b"
                         queue_display(fields, header=header, footer=footer)
 
                     except Exception, msg:
-                        logger.warn(u"4 %s" % msg)
+                        try:
+                            logger.warn(u"4 %s" % msg)
+                            logger.info(u"4 Complete Weather Report")
+                            fields = aprslib.parse(aprs_addresses)
+                            fields.update(header_fields)
+                            fields[u"Message_Type"] = u"=c"
+                            queue_display(fields, header=header, footer=footer)
+
+                        except Exception, msg:
+                            logger.warn(u"4 %s" % msg)
 
             # 5 aprslib @
             elif re.match(r"^@.*", footer, re.M | re.I):
@@ -452,9 +457,9 @@ def decode_aprs_messages(msgs):
                     fields[u"Latitude"] = footer[8:10] + u"." + footer[10:12] + footer[13:16]
                     # Remove leading zero
                     if footer[17] == u"0":
-                        fields[u"Longitude"] = u"-" + footer[18:20] + u"." + footer[19:21] + u"." + footer[23:26]
+                        fields[u"Longitude"] = u"-" + footer[18:20] + u"." + footer[19:21]  # + footer[23:26]
                     else:
-                        fields[u"Longitude"] = u"-" + footer[17:19] + u"." + footer[19:21] + u"." + footer[23:26]
+                        fields[u"Longitude"] = u"-" + footer[17:19] + u"." + footer[19:21]  # + footer[23:26]
 
                     fields[u"Symbol_Table"] = footer[16]
                     fields[u"Symbol"] = footer[26]
@@ -510,8 +515,8 @@ def decode_aprs_messages(msgs):
                             message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
                             fields = parse_aprs_footer(footer, message_bytes)
                             fields[u"Message_Type"] = u"@c"
-                            fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:]
-                            fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:]
+                            fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:5] + u"W"
+                            fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:4] + u"N"
                             fields[u"Symbol_Table"] = footer[16]
                             fields[u"Symbol"] = footer[26]
                             fields.update(header_fields)
@@ -562,18 +567,23 @@ def decode_aprs_messages(msgs):
                         logger.info(u"6.a Complete Weather Report Format ")
                         fields = aprslib.parse(aprs_addresses)
                         fields[u"Message_Type"] = u"/a"
-                        fields[u"Symbol"] = fields[u"Footer"][26]
+                        fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:]
+                        fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:]
+                        fields[u"Symbol_Table"] = footer[16]
+                        fields[u"Symbol"] = footer[26]
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
                     elif re.match(rem1, footer):
-                        logger.info(u"6.b Complete Weather Report Format ")
+                        logger.info(u"6.a Complete Weather Report Format ")
                         fields = aprslib.parse(aprs_addresses)
-                        fields[u"Message_Type"] = u"/b"
-                        fields[u"Symbol"] = fields[u"Footer"][26]
+                        fields[u"Message_Type"] = u"/a"
+                        fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:]
+                        fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:]
+                        fields[u"Symbol_Table"] = footer[16]
+                        fields[u"Symbol"] = footer[26]
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
-
                 except Exception, msg:
                     logger.debug(u"5 %s" % msg)
                     try:
@@ -581,6 +591,10 @@ def decode_aprs_messages(msgs):
                         message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 3, 6, 1, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields[u"Message_Type"] = u"/c"
+                        fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:5] + u"W"
+                        fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:4] + u"N"
+                        fields[u"Symbol_Table"] = footer[16]
+                        fields[u"Symbol"] = footer[26]
                         fields.update(header_fields)
                         queue_display(fields, header=header, footer=footer)
 
@@ -604,25 +618,26 @@ def decode_aprs_messages(msgs):
                 # ";443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org "
                 # ";443.075+ *061653z2833.11N/08123.12WrCFRA",
                 # ";443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org "
-                # rem = u"^;\d{3}.\d{3}.{3}\d{6}(z|h)\d{4}.\d{2}(N|S){1}.+\d{4}\.\d{2}(E|W){1}.+
+                rem0 = u"^;\d{3}.+\d{3}[ +-].+\*\d{6}(z|h)\d{4}.\d{2}(N|S){1}.+\d{5}\.\d{2}(E|W){1}.+"
                 try:
                     logger.info(u"7a Object Report Format")
                     fields = aprslib.parse(aprs_addresses)
                     fields[u"Message_Type"] = u";a"
                     fields.update(header_fields)
-                    fields[u"Longitude"] = fields[u"Longitude"] + u"W"
-                    fields[u"Latitude"] = fields[u"Latitude"] + u"N"
+                    fields[u"longitude"] = u"{:6.2f}W".format(fields[u"longitude"])
+                    fields[u"latitude"] = u"{:6.2f}N".format(fields[u"latitude"])
                     queue_display(fields, header=header, footer=footer)
 
                 except Exception, msg:
                     logger.info(u"7b Object Report Format")
 
                     try:
-                        message_bytes = (1, 9, 1, 7, 8, 1, 9, 1, 7, 0)
-                        fields = parse_aprs_footer(footer, message_bytes)
-                        fields[u"Message_Type"] = u";b"
-                        fields.update(header_fields)
-                        queue_display(fields, header=header, footer=footer)
+                        if re.match(rem0, footer):
+                            message_bytes = (1, 9, 1, 7, 8, 1, 9, 1, 7, 0)
+                            fields = parse_aprs_footer(footer, message_bytes)
+                            fields[u"Message_Type"] = u";b"
+                            fields.update(header_fields)
+                            queue_display(fields, header=header, footer=footer)
 
                     except Exception, msg:  # else:
                         logger.info(u"7c %s" % msg)

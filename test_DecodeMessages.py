@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 from ParseMessages import *
 import aprslib
+import pytest
+from pymongo import *
 
 from Logger import *
-from pymongo import *
+logger = setupLogging(__name__)
+logger.setLevel(INFO)
 
 MONGODB_SERVER = u"localhost"
 MONGODB_PORT = 27017
@@ -14,9 +17,6 @@ MONGODB_COLLECTION = u"Weather"
 client = MongoClient(MONGO_URI)
 db = client[MONGODB_DB]
 collection = db[MONGODB_COLLECTION]
-
-logger = setupLogging(__name__)
-logger.setLevel(INFO)
 
 
 def get_data(message_type, func, rows=0):
@@ -94,20 +94,35 @@ def status_response(success, failure, failures, show_rows=100):
         m = f[u"Footer"]
         logger.error(u"    {}".format(m))
 
+    if failure != 0:
+        return False
+    else:
+        return True
 
+# ___________________________________________________________________________________________________________________
+
+
+@pytest.fixture(scope=u"module")
+def header():
+    header = u'AFSK1200: fm W4HEM-14 to APN391-0 via WC4PEM-15,WC4PEM-14,WIDE2-0 UI  pid=F0'
+    return header
+
+
+@pytest.mark.APRS
 def test_ultw(header):
 
     ret = True
     ultw = list()
+    failures = list()
     message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
     test_fields = list([u"Barometer", u'Humidity', u"Message_Type", u"Temperature",
                         u"Time", u"Wind Direction", u"Wind Speed Peak", u"Zulu Time", ])
 
     value_fields = list()
     value_fields.append([1018.0, 100.0, u"$ULTW", 72.8, 80, u"ENE", 2.4, u"1:20"])
-    value_fields.append([1017.2, 100.0, u"$ULTW", 72.3, 70.0, u"N", 0.0, u"!:10"])
+    value_fields.append([1017.2, 100.0, u"$ULTW", 72.3, 70.0, u"N", 0.0, u"1:10"])
     value_fields.append([1017.8, 100.0, u"$ULTW", 72.3, 1290.0, u"NE", 17.6, u"21:30"])
-    value_fields.append([1015.9, 55.9, u"$ULTW", 88.7, 55.9, u"NE", 8.6, u"10:06"])
+    value_fields.append([1015.9, 55, u"$ULTW", 88.7, 1130.9, 0, 8.6, u"18:50"])
 
     ultw.append(u"$ULTW0018006002D8821427C400038702000103E80099005000000001")
     ultw.append(u"$ULTW0000000002D3670F27BCFFFD8765000103E80099004600010000")
@@ -142,17 +157,20 @@ def test_ultw(header):
                 e = value
 
             if e == w:
-                logger.debug(u"True  \t {} : .{}. : .{}. : .{}. : .{}.".format(f, w, type(w), e, type(e), f))
+                logger.debug(u"True  \t {} : {} : {} : .{}. : .{}. : .{}. : .{}.".format(n, m, f, w,
+                                                                                         type(w), e, type(e), f))
             else:
-                logger.info(u"False  \t {} : .{}. : .{}. : .{}. : .{}.".format(f, w, type(w), e, type(e), f))
 
-    return ret
+                logger.info(u"False  \t {} : {} : {} : .{}. : .{}. : .{}. : .{}.".format(n, m, f, w,
+                                                                                         type(w), e, type(e), f))
+                failures.append(u"{} : {} : {} : {}".format(m, n, e, w))
+
+    assert len(failures) == 0
 
 
+@pytest.mark.APRS
 def test_underscore(header):
-
-    ret = True
-
+    failures = list()
     test_fields = list([u"Humidity", u"Pressure", u'Rain_1H', u"Rain_24H", u"Rain_Since_Midnight",
                         u"Temperature", u"Wind_Direction", u"Wind_Gust", u"Wind_Speed"])
 
@@ -183,10 +201,10 @@ def test_underscore(header):
 
         assert cf is True
 
-    return ret
 
-
+@pytest.mark.APRS
 def test_ampersand(header):
+    ret = True
     results = list()
     test_fields = list([u"Humidity", u"Pressure", u'Rain_1H', u"Rain_24H", u"Rain_Since_Midnight",
                         u"Temperature", u"Wind_Gust"])
@@ -251,7 +269,6 @@ def test_ampersand(header):
             header_fields, aprs_addresses = parse_aprs_header(header, footer)
             logger.info(u"header_fields  : .{}.".format(header_fields))
             logger.info(u"aprs_addresses : .{}.".format(aprs_addresses))
-
             logger.info(u"fields : {}{}".format(fields, os.linesep))
 
             status = check_fields(value_fields[m], fields)
@@ -263,9 +280,12 @@ def test_ampersand(header):
             logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
             ret = False
 
+    assert ret is True
 
-def test_ampersand_history(message_type):
 
+@pytest.mark.APRS
+def test_ampersand_history():
+    message_type = u"@a"
     ret = True
     rows = 100
 
@@ -312,10 +332,14 @@ def test_ampersand_history(message_type):
                     return False
 
     success, failure, failures = get_data(message_type, func, rows=rows)
-    status_response(success, failure, failures, show_rows=10)
+    state = status_response(success, failure, failures, show_rows=10)
+
+    assert len(failures) == 0
 
 
-def test_forward_slash_history(message_type):
+@pytest.mark.APRS
+def test_forward_slash_history():
+    message_type = u"/a"
     #              1            2            3           4            5           6
     # 0 123456 7 8901234 5 6 78901234 5 6 7890123 4567 8901 2345 6789 0123 456 789012 3456789
     # / 062342 z 2803.50 N / 08146.10 W _ 210/000 g001t076r000P111h85b10072wVL1252")
@@ -347,10 +371,13 @@ def test_forward_slash_history(message_type):
                     return False
 
     success, failure, failures = get_data(message_type, func, rows=100)
-    status_response(success, failure, failures)
+    state = status_response(success, failure, failures)
+    assert len(failures) == 0
 
 
-def test_equal_history(message_type):
+@pytest.mark.APRS
+def test_equal_history():
+    message_type = u"="
     #               1            2         3         4         5         6
     # 0 1234567 8 9 01234567 8 9 0123456789012345678901234567890123456789012 3456789
     # = 2835.63 N S 08118.08 W # PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
@@ -380,16 +407,20 @@ def test_equal_history(message_type):
             return False
 
     success, failure, failures = get_data(message_type, func, rows=100)
-    status_response(success, failure, failures)
+    state = status_response(success, failure, failures)
+    assert len(failures) == 0
 
 
-def test_semicolon_history(message_type):
+@pytest.mark.APRS
+def test_semicolon_history():
+    message_type = u";a"
     rows = 100
 
-    # ";443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org "
-    # ";443.075+ *061653z2833.11N/08123.12WrCFRA",
-    # ";443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org "
-    rem0 = u"^;\d{3}.+\d{3}[ +-].+\*\d{6}(z|h)\d{4}.\d{2}(N|S){1}.+\d{4}\.\d{2}(E|W){1}.+"
+    # ;443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org
+    # ;443.075+ *061653z2833.11N/08123.12WrCFRA
+    # ;443.050- *111111z2832.38N\\08122.79Wy T103 R40m Skywarn w4mco.org
+    # ;444.625_D*111111z2815.27N/08139.28Wr444.625MHz C127 R25m
+    rem0 = u"^;\d{3}.+\d{3}[ +-].+\*\d{6}(z|h)\d{4}.\d{2}(N|S){1}.+\d{5}\.\d{2}(E|W){1}.+"
     rem1 = u""
     rem2 = u""
 
@@ -411,17 +442,20 @@ def test_semicolon_history(message_type):
             return False
 
     success, failure, failures = get_data(message_type, func, rows=rows)
-    status_response(success, failure, failures)
+    state = status_response(success, failure, failures)
+    assert len(failures) == 0
 
 
-def test_exclamation_history(message_type):
+@pytest.mark.APRS
+def test_exclamation_history():
+    message_type = u"!a"
     rows = 10
 
     # !2749.10NS 08215.39W#PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
     # !!0000009D02DB13E1279202B1--------00FF048D00000000
-    rem0 = u"^!\d{4}\.\d{2}(N|S)(_|S)\d{5}\.\d{2}(E|W)(#|_)(.|,|/| \(\@).+"
-    rem1 = u"^!\d{4}\.\d{2}(N|S)(_|S)\d{5}\.\d{2}(E|W).+"
-    rem2 = u"^!\d{4}\.\d{2}(N|S)"
+    rem0 = u"^!\d{4}\.\d{2}(N|S)(_|S|P)\d{5}\.\d{2}(E|W)(#|_)(.|,|/| \(\@).+"
+    rem1 = u"^!\d{4}\.\d{2}(N|S)(_|S|P)\d{5}\.\d{2}(E|W).+"
+    rem2 = u"^!\d{4}\.\d{2}(N|S)/\d{5}\.\d{2}(W|E)(#|_|).+"
 
     def func(page):
         message = page[u"Footer"]
@@ -434,8 +468,8 @@ def test_exclamation_history(message_type):
             logger.info(u"1. Success : {}".format(message))
             return True
         elif re.match(rem2, message):
-            logger.info(u"2. Successful Failure : {}".format(message))
-            return False
+            logger.info(u"2. Success : {}".format(message))
+            return True
         else:
             logger.info(u"4. Failure : {}".format(message))
             return False
@@ -443,29 +477,26 @@ def test_exclamation_history(message_type):
     success, failure, failures = get_data(message_type, func, rows=rows)
     status_response(success, failure, failures)
 
+    assert len(failures) == 0
+
 
 if __name__ == u"__main__":
 
     test_message = list()
     header = u'AFSK1200: fm W4HEM-14 to APN391-0 via WC4PEM-15,WC4PEM-14,WIDE2-0 UI  pid=F0'
 
-    # test_ultw(header)
+    test_ultw(header)
 
-    # test_underscore(header)
+    test_underscore(header)
 
-    # test_ampersand(header)
+    test_ampersand(header)
 
-    message_type = u"@a"
-    # test_ampersand_history(message_type)
+    test_ampersand_history()
 
-    message_type = u"/a"
-    # test_forward_slash_history(message_type)
+    test_forward_slash_history()
 
-    message_type = u"="
-    # test_equal_history(message_type)
+    test_equal_history()
 
-    message_type = u";a"
-    # test_semicolon_history(message_type)
+    test_semicolon_history()
 
-    message_type = u"!a"
-    # test_exclamation_history(message_type)
+    test_exclamation_history()
