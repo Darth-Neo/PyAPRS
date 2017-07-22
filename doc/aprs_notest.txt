@@ -20,3 +20,8 @@ APWxxx  WinAPRS
 APXxxx  X-APRS
 APYxxx  Yaesu radios (future)
 APZxxx  Experimental
+
+
+Favorites
+KG4YZY-11   PI TcpIp on air network stn
+

@@ -261,19 +261,20 @@ def decode_aprs_messages(msgs):
                 # $ULTW 00B0 0042 02D3 25ED  27C2   0010 8935   0001 03E8  0098 050A 0037 006A
                 # $ULTW 0064 00AB 030C 1821  2784   0001 85E5   0001 0323  009B 058C 0000 0026
                 #        1.7 66   72.3 97.09 1017.8 1.6  35125  1    100.0 152  1290 0.55 10.6
-                # rem = u"^$ULTW[0-9a-zA-Z]{52}"
-                try:
-                    logger.debug(u"1 Ultimeter 2000")
-                    message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
-                    fields = parse_aprs_footer(footer, message_bytes)
-                    fields[u"Message_Type"] = u"$ULTW"
-                    fields.update(header_fields)
-                    if fields[u"Wind Direction"] == 0:
-                        fields[u"Wind Direction"] = u"N"
-                    queue_display(fields, header=header, footer=footer)
+                rem0 = u"^$ULTW[0-9a-fA-F]{52}"
+                if re.match(rem0, footer):
+                    try:
+                        logger.debug(u"1 Ultimeter 2000")
+                        message_bytes = (5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0)
+                        fields = parse_aprs_footer(footer, message_bytes)
+                        fields[u"Message_Type"] = u"$ULTW"
+                        fields.update(header_fields)
+                        if fields[u"Wind Direction"] == 0:
+                            fields[u"Wind Direction"] = u"N"
+                        queue_display(fields, header=header, footer=footer)
 
-                except Exception as e:
-                    logger.warn(u"{} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
+                    except Exception as e:
+                        logger.warn(u"{} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
 
             # 2 aprslib _
             elif re.match(r"^_.*", footer, re.M | re.I):
@@ -300,11 +301,10 @@ def decode_aprs_messages(msgs):
                 # _05312040 c359 s000 g000 t075 r000 p086 P035 h99 b10182 tU2k
                 # _06051349 c359 s000 g000 t081 r000 p037 P023 h89 b10084 tU2k
                 # rem = u"^_\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.*"
-                # 1 8 c 3 s 3 g 3 t 3 r 3 p 3 P 3 h 2 b 5
                 try:  # This seems to fail alot
-                    rem = u"^_\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.*"
-                    if re.match(rem, footer, re.M):
-                        logger.info(u"2a Raw Weather Report")
+                    rem0 = u"^_\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.*"
+                    if re.match(rem0, footer, re.M):
+                        logger.info(u"_2a Raw Weather Report")
                         fields = aprslib.parse(aprs_addresses)
                         fields[u"Message_Type"] = u"_a"
                         fields.update(header_fields)
@@ -316,7 +316,7 @@ def decode_aprs_messages(msgs):
                 except Exception, msg:
                     try:
                         # MDHM
-                        logger.info(u"2b Positionless Weather Report")
+                        logger.info(u"_2b Positionless Weather Report")
                         message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 6, 1, 3, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields[u"Message_Type"] = u"_b"
@@ -324,7 +324,7 @@ def decode_aprs_messages(msgs):
                         queue_display(fields, header=header, footer=footer)
 
                     except Exception, msg:
-                        logger.info(u"2c Positionless Weather Report")
+                        logger.info(u"_2c Positionless Weather Report")
                         message_bytes = (1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 5, 1, 4, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields[u"Message_Type"] = u"_c"
@@ -343,25 +343,33 @@ def decode_aprs_messages(msgs):
                 # #
                 # PHG56304/W3,FLn Riverview, FL www.ni4ce.org (wind @ 810ft AGL)
                 # !2818.17N/08209.50W#Dade City
-                # rem = u"^!\d{4}.\d{2}(N|S).+\d{4}.\d{2}(E|W).+"
-                try:
-                    logger.info(u"3a Raw Weather Report")
-                    fields = aprslib.parse(aprs_addresses)
-                    fields[u"Message_Type"] = u"!a"
-                    fields[u"longitude"] = u"{:6.2f}W".format(fields[u"longitude"])
-                    fields[u"latitude"] = u"{:6.2f}N".format(fields[u"latitude"])
-                    fields.update(header_fields)
-                    queue_display(fields, header=header, footer=footer)
+                rem0 = u"^!\d{4}\.\d{2}(N|S)(_|S|P)\d{5}\.\d{2}(E|W)(#|_)(.|,|/| \(\@).+"
+                rem1 = u"^!\d{4}\.\d{2}(N|S)(_|S|P)\d{5}\.\d{2}(E|W).+"
+                rem2 = u"^!\d{4}\.\d{2}(N|S)/\d{5}\.\d{2}(W|E)(#|_|).+"
+                if re.match(rem0, footer):
+                    try:
+                        logger.info(u"!3a Raw Weather Report")
+                        fields = aprslib.parse(aprs_addresses)
+                        fields[u"Message_Type"] = u"!a"
+                        fields[u"longitude"] = u"{:6.2f}W".format(fields[u"longitude"])
+                        fields[u"latitude"] = u"{:6.2f}N".format(fields[u"latitude"])
+                        fields.update(header_fields)
+                        queue_display(fields, header=header, footer=footer)
+                    except Exception as e:
+                        logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
 
-                except Exception, msg:
-                    logger.info(u"3b Raw Weather Report")
-                    message_bytes = (1, 8, 1, 9, 1, 0)
-                    fields = parse_aprs_footer(footer, message_bytes)
-                    fields[u"Message_Type"] = u"!b"
-                    fields[u"longitude"] = u"{:6.2f}".format(fields[u"longitude"])
-                    fields[u"latitude"] = u"{:6.2f}".format(fields[u"latitude"])
-                    fields.update(header_fields)
-                    queue_display(fields, header=header, footer=footer)
+                elif re.match(rem1, footer):
+                    try:
+                        logger.info(u"!3b Raw Weather Report")
+                        message_bytes = (1, 8, 1, 9, 1, 0)
+                        fields = parse_aprs_footer(footer, message_bytes)
+                        fields[u"Message_Type"] = u"!b"
+                        fields[u"longitude"] = u"{:6.2f}".format(fields[u"longitude"])
+                        fields[u"latitude"] = u"{:6.2f}".format(fields[u"latitude"])
+                        fields.update(header_fields)
+                        queue_display(fields, header=header, footer=footer)
+                    except Exception as e:
+                        logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
 
             # 4 aprslib =
             elif re.match(r"^=.*", footer, re.M | re.I):
@@ -383,7 +391,7 @@ def decode_aprs_messages(msgs):
                 rem = u"^=\d{4}\.\d{2}(N|S){1}(S|/)\d{5}\.\d{2}(E|W){1}.+"
                 try:
                     if re.match(rem, footer):
-                        logger.info(u"4a Complete Weather Report")
+                        logger.info(u"=4a Complete Weather Report")
                         message_bytes = (1, 8, 1, 9, 1, 0)
                         flds = parse_aprs_footer(footer, message_bytes, grab_fields=False)
 
@@ -400,8 +408,8 @@ def decode_aprs_messages(msgs):
                         pass
                 except Exception, msg:
                     try:
-                        logger.warn(u"4 %s" % msg)
-                        logger.info(u"4b Complete Weather Report")
+                        logger.warn(u"4a %s" % msg)
+                        logger.info(u"=4b Complete Weather Report")
                         message_bytes = (1, 1, 4, 4, 1, 2, 1, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                         fields = parse_aprs_footer(footer, message_bytes)
                         fields.update(header_fields)
@@ -417,8 +425,8 @@ def decode_aprs_messages(msgs):
                             fields[u"Message_Type"] = u"=c"
                             queue_display(fields, header=header, footer=footer)
 
-                        except Exception, msg:
-                            logger.warn(u"4 %s" % msg)
+                        except Exception as e:
+                            logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
 
             # 5 aprslib @
             elif re.match(r"^@.*", footer, re.M | re.I):
@@ -560,9 +568,12 @@ def decode_aprs_messages(msgs):
                 # 1      6  1       8 1         9 1       7    4    4    4    4   3      6 1      6
                 # rem = u"^/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
                 try:
-                    rem0 = u"/\d{6}z[\d.n]{8}/[\d.W]{9}_[\d/]{7}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
-                    rem1 = u"/\d{6}(z|h)\d{4}.+\d{2}(N|S){1}/\d{4}.+\d{2}(E|W){1}_\d{3}/\d{3}g\d{3}t[\d]{3}r\d{3}" \
+                    rem0 = u"/\d{6}(z|h)\d{4}\.\d{2}(N|S)/\d{5}\.\d{2}(E|W)_\d{3}/\d{3}g\d{3}t\d{3}r\d{3}" \
+                           u"p\d{3}P/d{3}h\d{2}b\d{5}" \
                            u"p\d{3}P\d{3}h\d{2}b\d{4}.*"
+                    rem1 = u"/\d{6}(z|h)\d{4}\.\d{2}(N|S)/\d{5}\.\d{2}(E|W)_\d{3}/\d{3}g\d{3}t\d{3}r\d{3}" \
+                           u"P\d{3}h\d{2}b\d{5}.*"
+                    rem2 = u"/\d{6}(z|h)\d{4}.+\d{2}(N|S){1}/\d{4}.+\d{2}(E|W){1}.+\d{3}/\d{3}.+"
                     if re.match(rem0, footer):
                         logger.info(u"6.a Complete Weather Report Format ")
                         fields = aprslib.parse(aprs_addresses)
@@ -758,7 +769,8 @@ if __name__ == u"__main__":
 
     try:
         # program, ifile, ofile = get_CommandLine_Options(sys.argv)
-
+        dtt = datetime.now().strftime(u"%b %d  %I:%M %p")
+        rbs.send_message(dtt)
         loop_decode_messages(test=False)
 
     except KeyboardInterrupt:

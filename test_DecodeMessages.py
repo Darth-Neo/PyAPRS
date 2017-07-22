@@ -284,6 +284,35 @@ def test_ampersand(header):
 
 
 @pytest.mark.APRS
+def test_underscore_history():
+    message_type = u"_a"
+    ret = True
+    rows = 100
+
+    # 123456789 0123 4567 8901 2345 6789 0123 4567 890 123456 78901234567890123456789
+    # _05311550 c359 s000 g000 t086 r000 p086 P000 h64 b10160 tU2k
+    # _05312040 c359 s000 g000 t075 r000 p086 P035 h99 b10182 tU2k
+    # _06051349 c359 s000 g000 t081 r000 p037 P023 h89 b10084 tU2k
+    rem0 = u"^_\d{8}c\d{3}s\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.{4}"
+
+    def func(page):
+        message = page[u"Footer"]
+
+        logger.debug(u".{}.".format(message))
+        if re.match(rem0, message):
+            logger.info(u"0. Success : {}".format(message))
+            return True
+        else:
+            logger.info(u"3. Failure : {}".format(message))
+            return False
+
+    success, failure, failures = get_data(message_type, func, rows=rows)
+    state = status_response(success, failure, failures, show_rows=10)
+
+    assert len(failures) == 0
+
+
+@pytest.mark.APRS
 def test_ampersand_history():
     message_type = u"@a"
     ret = True
@@ -342,13 +371,13 @@ def test_forward_slash_history():
     message_type = u"/a"
     #              1            2            3           4            5           6
     # 0 123456 7 8901234 5 6 78901234 5 6 7890123 4567 8901 2345 6789 0123 456 789012 3456789
-    # / 062342 z 2803.50 N / 08146.10 W _ 210/000 g001t076r000P111h85b10072wVL1252")
-    # / 311704 z 2757.15 N / 08147.20 W _ 103/008 g012t094r000p001P000h41b10183")
-    # / 011851 z 2803.50 N / 08146.10 W _ 051/000 g006t096r000P000h45b10161wVL1252")
+    # / 062342 z 2803.50 N / 08146.10 W _ 210/000 g001 t076 r000 P111 h85 b10072 wVL1252")
+    # / 311704 z 2757.15 N / 08147.20 W _ 103/008 g012 t094 r000 p001 P000 h41 b10183")
+    # / 011851 z 2803.50 N / 08146.10 W _ 051/000 g006 t096 r000 P000 h45 b10161 wVL1252")
 
-    rem0 = u"/\d{6}(z|h)\d{4}.+\d{2}(N|S){1}/\d{4}.+\d{2}(E|W){1}_\d{3}/\d{3}g\d{3}t[\d]{3}r\d{3}P\d{3}h\d{2}b\d{4}.*"
-    rem1 = u"/\d{6}(z|h)\d{4}.+\d{2}(N|S){1}/\d{4}.+\d{2}(E|W){1}_\d{3}/\d{3}g\d{3}t[\d]{3}r\d{3}" \
+    rem0 = u"/\d{6}(z|h)\d{4}\.\d{2}(N|S)/\d{5}\.\d{2}(E|W)_\d{3}/\d{3}g\d{3}t\d{3}r\d{3}p\d{3}P/d{3}h\d{2}b\d{5}" \
            u"p\d{3}P\d{3}h\d{2}b\d{4}.*"
+    rem1 = u"/\d{6}(z|h)\d{4}\.\d{2}(N|S)/\d{5}\.\d{2}(E|W)_\d{3}/\d{3}g\d{3}t\d{3}r\d{3}P\d{3}h\d{2}b\d{5}.*"
     rem2 = u"/\d{6}(z|h)\d{4}.+\d{2}(N|S){1}/\d{4}.+\d{2}(E|W){1}.+\d{3}/\d{3}.+"
 
     def func(page):
@@ -382,6 +411,7 @@ def test_equal_history():
     # 0 1234567 8 9 01234567 8 9 0123456789012345678901234567890123456789012 3456789
     # = 2835.63 N S 08118.08 W # PHG8250/DIGI_NED: OCCA Digi,www.w4mco.org,N2KIQ@arrl.net
     # = 2751.41 N / 08248.28 W _ PHG2160/NB9X Weather Station -FLPINSEMINOLE-285-<630>
+    # = 2749.32 N / 08244.16 W _ 084/000g000t082r000P000p000h67b10176XU2k
 
     rows = 100
 
