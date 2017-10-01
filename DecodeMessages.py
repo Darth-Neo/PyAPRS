@@ -708,8 +708,9 @@ def decode_aprs_messages(msgs):
                 queue_display(fields, header=header, footer=footer)
 
             else:
-                # _____________________________________
-                logger.debug(u"No match - %s" % footer)
+                # dtt = datetime.now().strftime(u"%b %d  %I:%M %p")
+                # rbs.send_message(dtt)
+                logger.warn(u"Unknown Message Type")
 
         except Exception as e:
             logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
@@ -720,11 +721,16 @@ def loop_decode_messages(test=False):
     """
     Loop messages and decode as needed
     """
+    global weather_message
     cw = os.getcwd()
     ofn = cw + os.sep + u"DecodeMessageLine.sl"
 
     while True:
         try:
+            if weather_message == u"":
+                dtt = datetime.now().strftime(u"%b %d  %I:%M %p")
+                rbs.send_message(dtt)
+
             logFl = get_gqrx_log_files(test=test)
 
             eofl = loadObject(ofn)
