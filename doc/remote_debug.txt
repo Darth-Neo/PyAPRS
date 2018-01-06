@@ -1,0 +1,7 @@
+/home/james/PythonDev/pyaprs/bin/python
+/home/james/local/pycharm-community-2016.2/helpers/pydev/pydevd.py
+--multiproc
+--qt-support
+--client 127.0.0.1
+--port 46661
+--file /home/james/PythonDev/pyaprs/pyaprs/DecodeMessages.py

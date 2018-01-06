@@ -3,9 +3,10 @@ import re
 __all__ = [
     "parse_weather",
     "parse_weather_data",
-    ]
+]
 
 from Logger import *
+
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
@@ -44,6 +45,7 @@ val_map = {
     "#": lambda x: int(x),
 }
 
+
 def parse_weather_data(body):
     parsed = {}
 
@@ -52,7 +54,7 @@ def parse_weather_data(body):
     body = body.replace("s", "S", 1)
 
     data = re.findall(r"([cSgtrpPlLs#]\d{3}|t-\d{2}|h\d{2}|b\d{5}|s\.\d{2}|s\d\.\d)", body)
-    data = map(lambda x: (key_map[x[0]] , val_map[x[0]](x[1:])), data)
+    data = map(lambda x: (key_map[x[0]], val_map[x[0]](x[1:])), data)
 
     pd = dict(data)
     parsed.update(pd)
@@ -63,6 +65,7 @@ def parse_weather_data(body):
     rl = (body, parsed)
     return rl
 
+
 def parse_weather(body):
     match = re.match("^(\d{8})c[\. \d]{3}s[\. \d]{3}g[\. \d]{3}t[\. \d]{3}", body)
     if not match:
@@ -70,7 +73,7 @@ def parse_weather(body):
 
     comment, weather = parse_weather_data(body[8:])
 
-    parsed = {"format": "wx","wx_raw_timestamp": match.group(1),"comment": comment.strip(" "),"weather": weather,}
+    parsed = {"format": "wx", "wx_raw_timestamp": match.group(1), "comment": comment.strip(" "), "weather": weather, }
 
     rl = ("", parsed)
     return rl

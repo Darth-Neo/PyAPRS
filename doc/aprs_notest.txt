@@ -1,0 +1,27 @@
+The AX.25 Destination Address field can contain the version number of the
+APRS software that is running at the station. Knowledge of the version
+number can be useful when debugging.
+The following software version types are reserved (xx and xxx indicate a
+version number):
+APCxxx  APRS/CE, Windows CE
+APDxxx  Linux aprsd server
+APExxx  PIC-Encoder
+APIxxx  Icom radios (future)
+APICxx  ICQ messaging
+APKxxx  Kenwood radios
+APMxxx  MacAPRS
+APPxxx  pocketAPRS
+APRxxx  APRSdos
+APRS    older versions of APRSdos
+APRSM   older versions of MacAPRS
+APRSW   older versions of WinAPRS
+APSxxx  APRS+SA
+APWxxx  WinAPRS
+APXxxx  X-APRS
+APYxxx  Yaesu radios (future)
+APZxxx  Experimental
+
+
+Favorites
+KG4YZY-11   PI TcpIp on air network stn
+

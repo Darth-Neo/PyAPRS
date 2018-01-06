@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-__author__ = u"james.morris"
 from geo_lib import *
-
 from Logger import *
-
 logger = setupLogging(__name__)
 logger.setLevel(DEBUG)
 
@@ -19,7 +16,7 @@ def test_calculate():
     logger.info(u"%s" % gl[1])
     logger.info(u"%s" % gl[2])
 
-    return gl
+    assert True
 
 
 def test_calculateFromHome(lat, lon, display=True):
@@ -51,7 +48,7 @@ def test_calculateFromHome(lat, lon, display=True):
         reading_lon = lon
 
     else:
-        return None
+        assert False
 
     home = xyz(home_lat, home_lon)
     city = xyz(reading_lat, reading_lon)
@@ -66,7 +63,7 @@ def test_calculateFromHome(lat, lon, display=True):
 
     logger.debug(u"%3.2f \ %3.2f" % (gl[0][0], gl[2][1]))
 
-    return gl
+    assert True
 
 
 if __name__ == u"__main__":

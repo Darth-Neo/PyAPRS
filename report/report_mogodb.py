@@ -35,7 +35,7 @@ def getTo():
     results = collection.group(key={u"To": 1}, condition={}, initial={u"count": 0}, reduce=reducer, finalize=None)
     sl = sorted(results, key=lambda result: result[u"count"], reverse=True)
     logger.info(u"{0} - {1} records".format(name, len(sl)))
-    return slhelp
+    return sl
 
 def getFrom():
     name = __name__

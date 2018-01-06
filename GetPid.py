@@ -1,14 +1,13 @@
 #!/usr/bin/env python
-import sys
-import os
+from subprocess import Popen, PIPE, check_output, CalledProcessError
+
 import psutil
-import subprocess
-from subprocess import check_output, CalledProcessError
-from subprocess import *
+
 from Logger import *
 
 logger = setupLogging(__name__)
 logger.setLevel(DEBUG)
+
 
 def startProcess(pn=None):
     if pn is None:
@@ -16,13 +15,14 @@ def startProcess(pn=None):
     else:
         d = pn
 
-    p = subprocess.Popen([u"/usr/bin/sh", d], stdout=subprocess.PIPE)
+    p = Popen([u"/usr/bin/sh", d], stdout=PIPE)
     logger.debug(u"{}".format(p))
 
     if p is not None:
         return p
     else:
         return None
+
 
 def getPIDs(process):
     try:
@@ -45,14 +45,14 @@ def getPID(find_proc_name):
         pid = proc.pid
         cmdline = u"/proc/{}/cmdline".format(pid)
 
-        p = subprocess.Popen([u"/bin/ps", u"-f"], stdout=subprocess.PIPE)
+        p = Popen([u"/bin/ps", u"-f"], stdout=PIPE)
         owner = p.stdout.read()
         # logger.debug(u"Owner : {}".format(owner))
 
         if Use_SUDO is True:
-            sp = subprocess.check_output([u"sudo", u"cat", cmdline])
+            sp = check_output([u"sudo", u"cat", cmdline])
         else:
-            sp = subprocess.check_output([u"cat", cmdline])
+            sp = check_output([u"cat", cmdline])
 
         if len(sp) <> 0 and find_proc_name in sp:
             logger.debug(u"PID {:5} : ..{}..".format(pid, sp))
