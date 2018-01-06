@@ -6,6 +6,7 @@ from Logger import *
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
+
 class RabbitRecieve(object):
     def __init__(self, configFile=None):
 
@@ -13,16 +14,16 @@ class RabbitRecieve(object):
         Config = ConfigParser()
         Config.read(configFile)
 
-        self.vhost =       ConfigSectionMap(u"Receive", Config)[u'vhost']
-        self.queue =       ConfigSectionMap(u"Receive", Config)[u'queue']
+        self.vhost = ConfigSectionMap(u"Receive", Config)[u'vhost']
+        self.queue = ConfigSectionMap(u"Receive", Config)[u'queue']
         self.routing_key = ConfigSectionMap(u"Receive", Config)[u'routing_key']
-        self.exchange =    ConfigSectionMap(u"Receive", Config)[u'exchange']
+        self.exchange = ConfigSectionMap(u"Receive", Config)[u'exchange']
 
-        self.host =        ConfigSectionMap(u"Receive", Config)[u'host']
-        self.port =    int(ConfigSectionMap(u"Receive", Config)[u'port'])
+        self.host = ConfigSectionMap(u"Receive", Config)[u'host']
+        self.port = int(ConfigSectionMap(u"Receive", Config)[u'port'])
 
-        username =    ConfigSectionMap(u"Receive", Config)[u'username']
-        password =    ConfigSectionMap(u"Receive", Config)[u'password']
+        username = ConfigSectionMap(u"Receive", Config)[u'username']
+        password = ConfigSectionMap(u"Receive", Config)[u'password']
         self.credentials = pika.PlainCredentials(username, password)
 
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(
@@ -64,7 +65,6 @@ class RabbitRecieve(object):
 
 
 def test_recieve_message():
-
     rbr = RabbitRecieve()
 
     try:
@@ -72,6 +72,7 @@ def test_recieve_message():
 
     except KeyboardInterrupt, msg:
         logger.info(u"Bye")
+
 
 if __name__ == u"__main__":
     test_recieve_message()

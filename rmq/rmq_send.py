@@ -21,7 +21,9 @@ class RabbitSend(object):
         :param configFile:
         """
 
-        if configFile is None: configFile = u"rmq_settings.conf"
+        if configFile is None:
+            configFile = u"rmq_settings.conf"
+
         Config = ConfigParser()
         Config.read(configFile)
 
@@ -60,6 +62,7 @@ class RabbitSend(object):
         return value
 
     def send_message(self, message):
+
         """
         Send Message to host system
         :param message:
@@ -70,9 +73,11 @@ class RabbitSend(object):
 
         except KeyboardInterrupt:
             logger.info(u"Bye!")
+            return True
 
         except Exception, msg:
             logger.info(u"Ops, ... : %s" % msg)
+            return False
 
 
 def test_send_message(m=100, max=5):
