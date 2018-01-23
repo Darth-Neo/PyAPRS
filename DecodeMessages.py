@@ -39,25 +39,25 @@ class Decode_Messages(object):
 
     @staticmethod
     def log_aprs_message(result):
-            """
-            Logs eMic messages that have special decoding needs
-            :param result:
-            :return:
-            """
+        """
+        Logs eMic messages that have special decoding needs
+        :param result:
+        :return:
+        """
 
-            for n, emix in enumerate(result):
-                try:
-                    part = result[emix]
-                    if isinstance(part, (str, unicode)):
-                        logger.info(u"       %s : %s" % (emix, part))
-                    elif isinstance(part, int):
-                        logger.info(u"       %s : %3d" % (emix, part))
-                    elif isinstance(part, float):
-                        logger.info(u"       %s : %3.3f" % (emix, part))
-                    else:
-                        logger.info(u"       %s : tbd" % emix)
-                except Exception, msg:
-                    logger.error(u"%s" % msg)
+        for n, emix in enumerate(result):
+            try:
+                part = result[emix]
+                if isinstance(part, (str, unicode)):
+                    logger.info(u"       %s : %s" % (emix, part))
+                elif isinstance(part, int):
+                    logger.info(u"       %s : %3d" % (emix, part))
+                elif isinstance(part, float):
+                    logger.info(u"       %s : %3.3f" % (emix, part))
+                else:
+                    logger.info(u"       %s : tbd" % emix)
+            except Exception, msg:
+                logger.error(u"%s" % msg)
 
     @staticmethod
     def get_gqrx_log_files(test=False):
@@ -196,13 +196,13 @@ class Decode_Messages(object):
 
         nf = {k.title(): v for k, v in message.items()}
 
-        if not(u"Footer" in nf):
+        if not (u"Footer" in nf):
             nf[u"Footer"] = footer
 
-        if not(u"Header" in nf):
+        if not (u"Header" in nf):
             nf[u"Header"] = header
 
-        if not(u"Message_Type" in nf):
+        if not (u"Message_Type" in nf):
             nf[u"Message_Type"] = footer[0]
 
         if not (u"ReadingDateTime" in nf):
@@ -357,7 +357,8 @@ class Decode_Messages(object):
                             fields.update(header_fields)
                             self.queue_display(fields, header=header, footer=footer)
                         except Exception as e:
-                            logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
+                            logger.warn(
+                                u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
 
                     elif re.match(rem1, footer):
                         try:
@@ -370,7 +371,8 @@ class Decode_Messages(object):
                             fields.update(header_fields)
                             self.queue_display(fields, header=header, footer=footer)
                         except Exception as e:
-                            logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
+                            logger.warn(
+                                u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
 
                 # 4 aprslib =
                 elif re.match(r"^=.*", footer, re.M | re.I):
@@ -427,7 +429,8 @@ class Decode_Messages(object):
                                 self.queue_display(fields, header=header, footer=footer)
 
                             except Exception as e:
-                                logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
+                                logger.warn(
+                                    u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
 
                 # 5 aprslib @
                 elif re.match(r"^@.*", footer, re.M | re.I):
@@ -524,7 +527,8 @@ class Decode_Messages(object):
                                 message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 4, 3, 6, 0)
                                 fields = parse_aprs_footer(footer, message_bytes)
                                 fields[u"Message_Type"] = u"@c"
-                                fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:5] + u"W"
+                                fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][
+                                                                                                 3:5] + u"W"
                                 fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:4] + u"N"
                                 fields[u"Symbol_Table"] = footer[16]
                                 fields[u"Symbol"] = footer[26]
@@ -536,7 +540,8 @@ class Decode_Messages(object):
                                 message_bytes = (1, 7, 8, 1, 9, 4, 4, 4, 4, 4, 4, 3, 6, 0)
                                 fields = parse_aprs_footer(footer, message_bytes)
                                 fields[u"Message_Type"] = u"@d"
-                                fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:]
+                                fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][
+                                                                                                 3:]
                                 fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:]
                                 fields[u"Symbol_Table"] = footer[16]
                                 fields[u"Symbol"] = footer[26]
@@ -603,7 +608,8 @@ class Decode_Messages(object):
                             message_bytes = (1, 7, 8, 1, 9, 1, 7, 4, 4, 4, 4, 3, 6, 1, 0)
                             fields = parse_aprs_footer(footer, message_bytes)
                             fields[u"Message_Type"] = u"/c"
-                            fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][3:5] + u"W"
+                            fields[u"Longitude"] = u"-" + fields[u"Longitude"][1:3] + u"." + fields[u"Longitude"][
+                                                                                             3:5] + u"W"
                             fields[u"Latitude"] = fields[u"Latitude"][0:2] + u"." + fields[u"Latitude"][2:4] + u"N"
                             fields[u"Symbol_Table"] = footer[16]
                             fields[u"Symbol"] = footer[26]
@@ -712,6 +718,8 @@ class Decode_Messages(object):
                     # dtt = datetime.now().strftime(u"%b %d  %I:%M %p")
                     # rbs.send_message(dtt)
                     logger.warn(u"Unknown Message Type")
+                    logger.warn(u"%3d [%s]" % (n, header[10:]))
+                    logger.warn(u"    [%s]" % footer)
 
             except Exception as e:
                 logger.warn(u"decode_aprs_messages {} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
