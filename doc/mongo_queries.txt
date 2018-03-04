@@ -69,4 +69,11 @@ results = collection.group(key={"To":1}, condition={}, initial={"count":0}, redu
 s = sorted(results, key=lambda result: result["count"], reverse=True)
 for doc in s: print doc;
 
+# Message Type Count
+#
+db.getCollection('Weather').aggregate([{"$group":{_id:"$Message_Type", count : {"$sum":1}}}])
+
+# To
+#
+db.getCollection('Weather').aggregate([{"$group":{_id:"$To", count : {"$sum":1}}}])
 
