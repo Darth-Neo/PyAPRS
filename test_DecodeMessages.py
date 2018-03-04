@@ -6,6 +6,7 @@ import pytest
 from pymongo import *
 
 from Logger import *
+
 logger = setupLogging(__name__)
 logger.setLevel(INFO)
 
@@ -19,9 +20,10 @@ client = MongoClient(MONGO_URI)
 db = client[MONGODB_DB]
 collection = db[MONGODB_COLLECTION]
 
-cgitb.enable(format='text')
+cgitb.enable(format=u"text")
 
-TEST = True
+message_types = list(
+    [u"MicE", u"![ab]", u";[abc]", u"=[abc]", u"/[abc]", u"@[abc]", u"_[abc]", u"ultw", u">", u":[ab]", u"'", u"`"])
 
 regular_expressions = list()
 regular_expressions.append(u"^!\d{4}\.\d{2}(N|S)(_|S|P)\d{5}\.\d{2}(E|W)(#|_)(.|,|/| \(\@).+")
@@ -48,10 +50,11 @@ regular_expressions.append(
 
 regular_expressions.append(u"^@\d{6}[h|z]\d{4}\.\d{2}[NS][/S]\d{5}\.\d{2}(E|W)[_#][|-_].+$")
 
-regular_expressions.append(u"^@\d{6}[h|z]\d{4}\.\d{2}[N|S][/S]\d{5}\.\d{2}[E|W]_\d{3}[/]\d{3}" \
+regular_expressions.append(u"^@\d{6}[h|z]\d{4}\.\d{2}[N|S][/S]\d{5}\.\d{2}[E|W]_\d{3}[/]\d{3}" +
                            u"g\d{3}t\d{3}r\d{3}[pP]\d{3}[pP]\d{3}h\d{2}b\d{5}.+$")
-regular_expressions.append(u"^@\d{6}[h|z]\d{4}\.\d{2}[NS][/S]\d{5}\.\d{2}[E|W]_\d{3}/\d{3}" \
+regular_expressions.append(u"^@\d{6}[h|z]\d{4}\.\d{2}[NS][/S]\d{5}\.\d{2}[E|W]_\d{3}/\d{3}" +
                            u"g\d{3}t\d{3}r\d{3}p\d{3}P\d{3}h\d{2}b\d{5}.+$")
+
 
 # ___________________________________________________________________________________________________________________
 
@@ -73,9 +76,10 @@ def get_data(message_type, func, rows=100):
     results = list()
 
     if message_type is not None:
-        cursor = collection.find({u"Message_Type": {u'$eq': message_type}})  # .sort({u"_id": -1})
+        cursor = collection.find({u"Message_Type": {u'$eq': message_type}}).sort("_id",
+                                                                                 DESCENDING)  # sort({u"_id": -1})
     else:
-        cursor = collection.find({u"Temperature": {u'$exists': u'false'}})  # .sort({u"_id": -1})
+        cursor = collection.find({u"Temperature": {u'$exists': u'false'}}).sort("_id", DESCENDING)  # sort({u"_id": -1})
 
     for page in cursor[:rows]:
         if isinstance(page, dict):
@@ -144,7 +148,7 @@ def status_response(success, failure, failures, show_rows=100):
     logger.info(u"Failure   : {}".format(f))
 
     if s > 0:
-        logger.info(u"Success % : {}".format((s / (s+f))*100.0))
+        logger.info(u"Success % : {}".format((s / (s + f)) * 100.0))
 
     for q, f in enumerate(failures):
         m = f[u"Footer"][0]
@@ -175,7 +179,7 @@ def status_response(success, failure, failures, show_rows=100):
             logger.info(u"{}\t.{}.".format(a, b))
 
     logger.info(
-        u"____________________________________________________________________________________________________________")
+        u"----------------------------------------------------------------------------------------------------------")
 
     if failure != 0:
         return False
@@ -317,8 +321,7 @@ def test_underscore_history(rows=100):
     success, failure, failures = get_data(message_type, func, rows=rows)
     state = status_response(success, failure, failures, show_rows=10)
 
-    if TEST is True:
-        assert len(failures) == 0
+    assert len(failures) == 0
 
 
 @pytest.mark.APRS
@@ -448,8 +451,7 @@ def test_ampersand_history(rows=100):
     success, failure, failures = get_data(message_type, func, rows=rows)
     state = status_response(success, failure, failures, show_rows=10)
 
-    if TEST is True:
-        assert len(failures) == 0
+    assert len(failures) == 0
 
 
 @pytest.mark.APRS
@@ -493,8 +495,7 @@ def test_forward_slash_history(rows=100):
 
     state = status_response(success, failure, failures, show_rows=10)
 
-    if TEST is True:
-        assert len(failures) == 0
+    assert len(failures) == 0
 
 
 @pytest.mark.APRS
@@ -526,8 +527,8 @@ def test_equal_history(rows=100):
 
     success, failure, failures = get_data(message_type, func, rows=rows)
     state = status_response(success, failure, failures)
-    if TEST is True:
-        assert len(failures) == 0
+
+    assert len(failures) == 0
 
 
 @pytest.mark.APRS
@@ -566,8 +567,7 @@ def test_semicolon_history(rows=100):
     success, failure, failures = get_data(message_type, func, rows=rows)
     state = status_response(success, failure, failures)
 
-    if TEST is True:
-        assert len(failures) == 0
+    assert len(failures) == 0
 
 
 @pytest.mark.APRS
@@ -598,8 +598,23 @@ def test_exclamation_history(rows=100):
     success, failure, failures = get_data(message_type, func, rows=rows)
     status_response(success, failure, failures)
 
-    if TEST is True:
-        assert len(failures) == 0
+    assert len(failures) == 0
+
+
+@pytest.mark.APRS
+def test_MicE(header, footer, rows=100):
+    header_fields, aprs_addresses = parse_aprs_header(header, footer)
+
+    try:
+        logger.info(u"10 eMic Format")
+        fields = aprslib.parse(aprs_addresses)
+        fields[u"Message_Type"] = u"MicE"
+        fields[u"longitude"] = u"{:6.2f}W".format(fields[u"longitude"])
+        fields[u"latitude"] = u"{:6.2f}N".format(fields[u"latitude"])
+        fields.update(header_fields)
+
+    except Exception, msg:
+        logger.error(u"Parse Error: {}".format(msg))
 
 
 def test_messages(rows=100):
@@ -629,27 +644,35 @@ def test_messages(rows=100):
 if __name__ == u"__main__":
 
     try:
-        # test_messages(rows=10000)
+        if False:
+            test_messages(rows=10000)
 
-        header = u'AFSK1200: fm W4HEM-14 to APN391-0 via WC4PEM-15,WC4PEM-14,WIDE2-0 UI  pid=F0'
+        else:
+            header = u'AFSK1200: fm W4HEM-14 to APN391-0 via WC4PEM-15,WC4PEM-14,WIDE2-0 UI  pid=F0'
 
-        test_ultw(header)
+            footer = u"""`n-.l{.>/`"4b}_%"""
+            test_MicE(header, footer, rows=0)
 
-        test_underscore(header)
+            footer = u"""`mIHq^`>/'"4@}|#u&0(4|!wal!|3"""
+            test_MicE(header, footer, rows=0)
 
-        test_ampersand(header)
+            test_ultw(header)
 
-        test_ampersand_history(rows=10000)
+            test_underscore(header)
 
-        test_forward_slash_history(rows=10000)
+            test_ampersand(header)
 
-        test_underscore_history(rows=10000)
+            test_ampersand_history(rows=10000)
 
-        test_equal_history(rows=10000)
+            test_forward_slash_history(rows=10000)
 
-        test_semicolon_history(rows=10000)
+            test_underscore_history(rows=10000)
 
-        test_exclamation_history(rows=10000)
+            test_equal_history(rows=10000)
+
+            test_semicolon_history(rows=10000)
+
+            test_exclamation_history(rows=10000)
 
     except KeyboardInterrupt:
         logger.info(u"Goodbye...")

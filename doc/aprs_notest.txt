@@ -25,3 +25,8 @@ APZxxx  Experimental
 Favorites
 KG4YZY-11   PI TcpIp on air network stn
 
+String to Datetime
+datetime.strptime('Jun 1 2005  1:33PM', '%b %d %Y %I:%M%p')
+
+DateTime to String
+datetime.datetime.now().strftime("%y-%m-%d-%H-%M")

@@ -10,7 +10,7 @@ from pymongo import *
 
 from Logger import *
 logger = setupLogging(__name__)
-logger.setLevel(INFO)
+logger.setLevel(DEBUG)
 
 
 class Decode_Messages(object):
@@ -54,6 +54,8 @@ class Decode_Messages(object):
                     logger.info(u"       %s : %3d" % (emix, part))
                 elif isinstance(part, float):
                     logger.info(u"       %s : %3.3f" % (emix, part))
+                elif isinstance(part, datetime):
+                    logger.info(u"       %s : %s" % (emix, part))
                 else:
                     logger.info(u"       %s : tbd" % emix)
             except Exception, msg:
@@ -76,7 +78,7 @@ class Decode_Messages(object):
             for root, dirs, files in os.walk(path, topdown=False):
                 for name in files:
                     rFile = os.path.join(root, name)
-                    logger.debug(u"%s" % rFile)
+                    # logger.debug(u"%s" % rFile)
 
                     if re.match(r"^gqrx-[0-9]+-[0-9]+-[0-9]+-[0-9]+-[0-9]+.log", name, re.M | re.I):
                         logs.append(rFile)
@@ -114,22 +116,20 @@ class Decode_Messages(object):
 
         return aprs_messages
 
-    def update_display(self, message, gm=None):
+    def update_display(self, message, gm=None, display_fields=False):
         """
         :param message:
         :param gm:
+        :param display_fields
         :return:
         """
-
-        if message is None:
-            return
 
         fm = to = mt = None
         wl = list()
 
         # Preferred fields
-        gm = [u"Temperature", u"Humidity", u"Barometer", u"Barometric Pressure", u"ReadingDateTime",
-              # u"Time", u"Zulu Time",
+        gm = [u"Temperature", u"Humidity", u"Barometer", u"Barometric Pressure",
+              # u"ReadingDateTime", u"Time", u"Zulu Time",
               # u"symbol", u"symbol_table", u"Alternate Symbol Table",
               # u"longitude", u"latitude", u"Longitude", u"Latitude",
               # u"object_name",
@@ -148,18 +148,17 @@ class Decode_Messages(object):
 
             self.rbs.send_message(u"From: {}\n{} To: {}".format(fm, message[u"Message_Type"][0], to))
 
-            # Begin queueing messages
-            for k, v in sorted(message.items(), reverse=False):
-                if k in gm:
-                    logger.debug(u"*** Match : {0} ***".format(v))
-                    if isinstance(v, float) and v != 0:
-                        v = u"%4.2f" % v
-                    elif isinstance(v, int) and v != 0:
-                        v = u"%4d" % v
-                    else:
-                        continue
+            if display_fields is True:
+                # Begin queueing messages
+                for k, v in sorted(message.items(), reverse=False):
+                    if k in gm:
+                        logger.debug(u"*** Match : {0} ***".format(v))
+                        if isinstance(v, float) and v != 0:
+                            v = u"%4.2f" % v
+                        elif isinstance(v, int) and v != 0:
+                            v = u"%4d" % v
 
-                        # self.rbs.send_message(u"%s\n%s" % (k.title(), v))
+                        self.rbs.send_message(u"%s\n%s" % (k.title(), v))
 
             # Finish by sending the Date and Time + Temp + Humidity + Barometric Pressure
             wmt = parse_weather_message(message)
@@ -207,6 +206,19 @@ class Decode_Messages(object):
 
         if not (u"ReadingDateTime" in nf):
             nf[u"ReadingDateTime"] = datetime.now().strftime(u"%b %d  %I:%M %p")
+
+        """
+        if u"Temperature" in nf:
+            nf[u"Temperature"] = round(nf[u"Temperature"], 2)
+
+        if u"Barometer" in nf:
+            nf[u"Barometer"] = round(nf[u"Barometer"], 2)
+
+        if u"Humidity" in nf:
+            nf[u"Humidity"] = round(nf[u"Humidity"], 2)
+        """
+
+        nf[u"InsertDateTime"] = datetime.now()
 
         self.log_aprs_message(nf)
 
@@ -281,12 +293,14 @@ class Decode_Messages(object):
                     Field #13, 0000 = 1 Minute Wind Speed Average (reported in 0.1kph increments)
                     """
                     #        1    2    3    4      5     6    7      8    9     10   11   12   13
+                    # $ULTW 0138 0005 02B3 CEF8  27CC   FFEF 8782   0001 0142  003D 0370 0000 00CE
                     # $ULTW 0018 0060 02D8 8214  27C4   0003 8702   0001 03E8  0099 0050 0000 0001
                     # $ULTW 0000 0000 02D3 670F  27BC   FFFD 8765   0001 03E8  0099 0046 0001 0000
                     # $ULTW 00B0 0042 02D3 25ED  27C2   0010 8935   0001 03E8  0098 050A 0037 006A
                     # $ULTW 0064 00AB 030C 1821  2784   0001 85E5   0001 0323  009B 058C 0000 0026
                     #        1.7 66   72.3 97.09 1017.8 1.6  35125  1    100.0 152  1290 0.55 10.6
-                    rem0 = u"^$ULTW[0-9a-fA-F]{52}"
+                    #
+                    rem0 = u"^\$ULTW[0-9a-fA-F]{52}"
                     if re.match(rem0, footer):
                         try:
                             logger.debug(u"1 Ultimeter 2000")
@@ -296,7 +310,7 @@ class Decode_Messages(object):
                             fields.update(header_fields)
                             if fields[u"Wind Direction"] == 0:
                                 fields[u"Wind Direction"] = u"N"
-                                self.queue_display(fields, header=header, footer=footer)
+                            self.queue_display(fields, header=header, footer=footer)
 
                         except Exception as e:
                             logger.warn(u"{} {} {}".format(sys.exc_info()[-1].tb_lineno, type(e), e))
